@@ -1,44 +1,37 @@
 // src/world/Asteroid.js — asteroid entity with HP and resource drops
 
 import { cacheSprite, getSprite } from '../utils/SpriteCache.js';
-import { RES } from '../constants.js';
+import { ORE } from '../constants.js';
 
-// Pre-render N different asteroid shapes at startup
 const VARIANTS = 5;
 const MIN_R    = 20;
 const MAX_R    = 60;
 
 export function initAsteroidSprites() {
-  // Use a fixed seed per variant for deterministic look
   for (let v = 0; v < VARIANTS; v++) {
     const r   = MIN_R + (v / (VARIANTS - 1)) * (MAX_R - MIN_R);
     const key = `ast_${v}`;
     const sz  = (r * 2 + 4) | 0;
     cacheSprite(key, sz, sz, (ctx, w, h) => {
       const cx = w / 2, cy = h / 2;
-      // Jagged polygon
       const pts = 9 + (v % 3);
       ctx.beginPath();
       for (let i = 0; i < pts; i++) {
-        const a = (i / pts) * Math.PI * 2;
-        // deterministic jitter using v
+        const a      = (i / pts) * Math.PI * 2;
         const jitter = 0.65 + 0.35 * Math.abs(Math.sin(v * 7.3 + i * 2.1));
-        const pr = r * jitter;
-        const px = cx + Math.cos(a) * pr;
-        const py = cy + Math.sin(a) * pr;
+        const pr     = r * jitter;
+        const px     = cx + Math.cos(a) * pr;
+        const py     = cy + Math.sin(a) * pr;
         if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
       }
       ctx.closePath();
-      // Base colour
       const g = ctx.createRadialGradient(cx - r*0.2, cy - r*0.2, r*0.1, cx, cy, r);
       g.addColorStop(0, '#a09080');
       g.addColorStop(1, '#504038');
       ctx.fillStyle = g;
       ctx.fill();
-      // Craters
       ctx.strokeStyle = '#302820'; ctx.lineWidth = 1;
       ctx.stroke();
-      // Surface detail lines
       ctx.strokeStyle = '#605040'; ctx.lineWidth = 0.8;
       for (let i = 0; i < 3; i++) {
         const ax = cx + (Math.sin(v * 3.1 + i) * r * 0.4);
@@ -51,13 +44,12 @@ export function initAsteroidSprites() {
   }
 }
 
-// Resource drop table: which resources fall from asteroids
 const DROP_TABLE = [
-  { id: RES.IRON,        weight: 50, min: 3, max: 8  },
-  { id: RES.COPPER,      weight: 25, min: 2, max: 5  },
-  { id: RES.CRYSTAL,     weight: 15, min: 1, max: 3  },
-  { id: RES.TITANIUM,    weight: 8,  min: 1, max: 2  },
-  { id: RES.DARK_MATTER, weight: 2,  min: 1, max: 1  },
+  { id: ORE.IRON,        weight: 50, min: 3, max: 8 },
+  { id: ORE.COPPER,      weight: 25, min: 2, max: 5 },
+  { id: ORE.CRYSTAL,     weight: 15, min: 1, max: 3 },
+  { id: ORE.TITANIUM,    weight: 8,  min: 1, max: 2 },
+  { id: ORE.DARK_MATTER, weight: 2,  min: 1, max: 1 },
 ];
 const _totalWeight = DROP_TABLE.reduce((s, e) => s + e.weight, 0);
 
@@ -70,7 +62,7 @@ function rollDrop(rng) {
       return { id: entry.id, count };
     }
   }
-  return { id: RES.IRON, count: 1 };
+  return { id: ORE.IRON, count: 1 };
 }
 
 export class Asteroid {
@@ -82,10 +74,10 @@ export class Asteroid {
     this.maxHp   = 100;
     this.hp      = 100;
     this.angle   = 0;
-    this.av      = 0;        // angular velocity
+    this.av      = 0;
     this.alive   = false;
     this._pooled = false;
-    this._drops  = [];       // resource drops on death
+    this._drops  = [];
   }
 
   init(x, y, variant, rng) {
@@ -101,7 +93,6 @@ export class Asteroid {
     this.hp     = this.maxHp;
     this.alive  = true;
 
-    // Pre-roll drops
     this._drops.length = 0;
     const numDrops = 1 + (this.variant >> 1);
     for (let i = 0; i < numDrops; i++) {
@@ -113,12 +104,10 @@ export class Asteroid {
     this.x     += this.vx * dt;
     this.y     += this.vy * dt;
     this.angle += this.av * dt;
-    // Slow drift damping
-    this.vx *= 0.999;
-    this.vy *= 0.999;
+    this.vx    *= 0.999;
+    this.vy    *= 0.999;
   }
 
-  /** Returns array of { id, count } drops (only after hp <= 0). */
   getDrops() { return this._drops; }
 
   draw(ctx) {
@@ -129,7 +118,6 @@ export class Asteroid {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    // Draw damage tint
     ctx.drawImage(sprite, -sw / 2, -sh / 2, sw, sh);
     if (this.hp < this.maxHp) {
       const t = 1 - this.hp / this.maxHp;

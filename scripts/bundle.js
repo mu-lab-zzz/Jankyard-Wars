@@ -23,6 +23,7 @@ const ORDER = [
   'src/ship/Ship.js',
   'src/world/Asteroid.js',
   'src/world/DropItem.js',
+  'src/world/Station.js',
   'src/world/World.js',
   'src/combat/Bullet.js',
   'src/combat/WeaponSystem.js',
@@ -33,7 +34,7 @@ const ORDER = [
   'src/craft/CraftSystem.js',
   'src/ui/HUD.js',
   'src/ui/BuildUI.js',
-  'src/ui/CraftUI.js',
+  'src/ui/StationUI.js',
   'src/ui/UIManager.js',
   'src/save/SaveSystem.js',
   'src/Game.js',
@@ -62,17 +63,27 @@ for (const relPath of ORDER) {
   const fullPath = path.join(ROOT, relPath);
   let code = fs.readFileSync(fullPath, 'utf8');
   code = stripImportsExports(code);
-  // Remove blank lines left by stripped imports
   code = code.replace(/^\s*\n/gm, '\n').trim();
   bundle += `// ═══ ${relPath} ═══\n${code}\n\n`;
 }
 
-// Build the final HTML — read the template and swap out the module script tag
+// Build the final HTML — read the template and swap out the script block
 let html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-html = html.replace(
-  /\s*<script\s+type="module"\s+src="src\/main\.js"><\/script>/,
-  `\n  <script>\n${bundle}\n  </script>`
-);
+
+// Match either:
+//   <script type="module" src="src/main.js"></script>  (first run)
+//   <script>// Jankyard Wars — bundled...</script>       (subsequent runs)
+const moduleTagRe = /\s*<script\s+type="module"\s+src="src\/main\.js"><\/script>/;
+const bundleTagRe = /\s*<script>\s*\/\/ Jankyard Wars — bundled[\s\S]*?<\/script>/;
+
+if (moduleTagRe.test(html)) {
+  html = html.replace(moduleTagRe, `\n  <script>\n${bundle}\n  </script>`);
+} else if (bundleTagRe.test(html)) {
+  html = html.replace(bundleTagRe, `\n  <script>\n${bundle}\n  </script>`);
+} else {
+  console.error('ERROR: Could not find script placeholder in index.html');
+  process.exit(1);
+}
 
 const outPath = path.join(ROOT, 'index.html');
 fs.writeFileSync(outPath, html, 'utf8');

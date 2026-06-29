@@ -228,6 +228,100 @@
       font-size: 11px;
       color: #90c0e0;
     }
+
+    /* ── Station UI ───────────────────────────────────────────────────── */
+    #station-ui {
+      padding: 20px 18px;
+      max-width: 680px;
+      width: 100%;
+      margin: 0 auto;
+    }
+    #station-ui h2 {
+      color: #40d0ff;
+      font-size: 18px;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #1a3050;
+    }
+
+    .station-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid #1a3050;
+      padding-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .station-tab-btn {
+      padding: 6px 16px;
+      border: 1px solid #1a3050;
+      border-radius: 4px 4px 0 0;
+      background: rgba(0,10,25,0.8);
+      color: #507090;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      transition: background 0.1s, color 0.1s;
+    }
+    .station-tab-btn.active {
+      background: rgba(10,40,80,0.9);
+      color: #60c0ff;
+      border-color: #2a6090;
+    }
+    .station-tab-btn:hover { color: #90c0e0; }
+
+    .station-panel { padding: 10px 0; }
+    .station-panel.hidden { display: none; }
+
+    .section-title {
+      font-size: 11px;
+      color: #405870;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 12px 0 8px;
+    }
+
+    #station-cargo-info .stat-row,
+    #station-dock-info  .stat-row {
+      font-size: 12px;
+      color: #7090b0;
+      margin-bottom: 6px;
+    }
+    #station-cargo-info .ore-row { font-size: 11px; margin: 2px 0; }
+
+    .refine-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(30,50,80,0.4);
+      flex-wrap: wrap;
+    }
+    .refine-row span { min-width: 100px; }
+    .refine-row button { font-size: 10px; padding: 4px 10px; }
+
+    #station-mat-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 8px;
+      background: rgba(0,5,15,0.6);
+      border-radius: 6px;
+      border: 1px solid #1a3050;
+      min-height: 32px;
+    }
+    .mat-chip {
+      font-size: 11px;
+      background: rgba(10,30,60,0.8);
+      border: 1px solid #1a4060;
+      border-radius: 4px;
+      padding: 3px 8px;
+    }
+
+    #btn-deposit-all { margin: 8px 0 6px; }
+    #btn-station-close { margin-top: 16px; }
   </style>
 </head>
 <body>
@@ -251,14 +345,39 @@
     </div>
   </div>
 
-  <!-- ── Craft overlay ─────────────────────────────────────────────────── -->
-  <div class="overlay" id="craft-overlay">
-    <div id="craft-ui">
-      <h2>⚗️ クラフト</h2>
-      <div class="recipe-grid" id="recipe-grid">
-        <!-- populated by CraftUI.js -->
+  <!-- ── Station overlay ──────────────────────────────────────────────── -->
+  <div class="overlay" id="station-overlay">
+    <div id="station-ui">
+      <h2>🛸 宇宙ステーション</h2>
+
+      <!-- Tab buttons -->
+      <div class="station-tabs">
+        <button class="station-tab-btn active" data-tab="refine">搬入・精製</button>
+        <button class="station-tab-btn"        data-tab="craft">パーツ製造</button>
+        <button class="station-tab-btn"        data-tab="dock">ドック</button>
       </div>
-      <button class="btn" id="btn-craft-close">閉じる [C]</button>
+
+      <!-- Tab: Deposit & Refine -->
+      <div class="station-panel" id="station-panel-refine">
+        <div id="station-cargo-info"></div>
+        <button class="btn primary" id="btn-deposit-all">全積荷を搬入</button>
+        <div id="station-ore-list"></div>
+      </div>
+
+      <!-- Tab: Craft -->
+      <div class="station-panel hidden" id="station-panel-craft">
+        <div id="station-mat-list"></div>
+        <div class="recipe-grid" id="station-recipe-grid"></div>
+      </div>
+
+      <!-- Tab: Dock -->
+      <div class="station-panel hidden" id="station-panel-dock">
+        <div id="station-dock-info"></div>
+        <p style="color:#608090;margin:12px 0">ドックに接続中。ブロックの追加・取り外しができます。</p>
+        <button class="btn primary" id="btn-enter-build">🔧 建造モードに入る</button>
+      </div>
+
+      <button class="btn" id="btn-station-close">🚀 出発する</button>
     </div>
   </div>
 
@@ -268,11 +387,11 @@
       <h2>⚙️ 設定</h2>
       <div class="key-hint-box">
         <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / 矢印キー — 推力・回転<br>
-        <kbd>クリック</kbd> — 武器発射（マウス方向に照準）<br>
-        <kbd>E</kbd> or <kbd>Space</kbd> — ドリル（近くの小惑星を採掘）<br>
-        <kbd>B</kbd> — 建造モード切替<br>
-        <kbd>C</kbd> — クラフト画面<br>
-        <kbd>Esc</kbd> — この設定画面
+        <kbd>クリック</kbd> / 右タップ — 武器発射<br>
+        <kbd>E</kbd> / <kbd>Space</kbd> — ドリル採掘 / ステーションドック<br>
+        <kbd>B</kbd> — 建造モード（ドック時のみ）<br>
+        <kbd>Esc</kbd> — この設定画面<br>
+        左スワイプ — 移動ジョイスティック（スマホ）
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
         <button class="btn primary" id="btn-settings-save">セーブ（ファイルに保存）</button>
@@ -308,29 +427,56 @@ const CAMERA_LERP = 0.1;  // camera smoothing factor
 
 const BULLET_SPEED  = 480;  // world px/s
 const BULLET_LIFE   = 2.5;  // seconds
-const PICKUP_RANGE  = 72;   // world px for auto-pickup
 
 const CHUNK_BLOCKS = 16;
 const CHUNK_PX     = BS * CHUNK_BLOCKS; // 512
 const ACTIVE_RADIUS_CHUNKS = 3;
 
-const ASTEROID_DENSITY      = 0.12;  // fraction of chunks that have asteroids
+const ASTEROID_DENSITY      = 0.12;
 const ASTEROIDS_PER_CHUNK   = 5;
 const ENEMY_DENSITY         = 0.06;
 const ENEMIES_PER_CHUNK     = 1;
 const ENEMY_DESPAWN_DIST    = 2200;
 const ASTEROID_DESPAWN_DIST = 1900;
 
-// Resource ids
-const RES = Object.freeze({
-  IRON:        'iron',
-  COPPER:      'copper',
-  CRYSTAL:     'crystal',
-  TITANIUM:    'titanium',
+// ── Cargo ──────────────────────────────────────────────────────────────────
+const BASE_CARGO = 20;          // capacity with no container blocks
+const PICKUP_RANGE = 80;        // auto-pickup radius
+
+// ── Station ────────────────────────────────────────────────────────────────
+const STATION_X = 0;
+const STATION_Y = 0;
+const STATION_DOCK_RANGE = 350; // world px to show dock button
+const STATION_INNER_RANGE = 160;// world px for auto-dock collision
+
+// ── Raw ores (from asteroids, stored in ship cargo) ────────────────────────
+const ORE = Object.freeze({
+  IRON:        'iron_ore',
+  COPPER:      'copper_ore',
+  CRYSTAL:     'crystal_shard',
+  TITANIUM:    'titanium_ore',
   DARK_MATTER: 'dark_matter',
 });
 
-// Block type ids
+// Cargo weight per 1 unit of ore
+const ORE_WEIGHT = Object.freeze({
+  iron_ore:     1,
+  copper_ore:   1,
+  crystal_shard:2,
+  titanium_ore: 2,
+  dark_matter:  1,
+});
+
+// ── Processed materials (refined at station) ───────────────────────────────
+const MAT = Object.freeze({
+  IRON_PLATE:     'iron_plate',
+  COPPER_WIRE:    'copper_wire',
+  CRYSTAL_LENS:   'crystal_lens',
+  TITANIUM_ALLOY: 'titanium_alloy',
+  ENERGY_CELL:    'energy_cell',
+});
+
+// ── Block type ids ─────────────────────────────────────────────────────────
 const BID = Object.freeze({
   CORE:        'core',
   ARMOR:       'armor',
@@ -345,16 +491,16 @@ const BID = Object.freeze({
   DRONE_HATCH: 'drone_hatch',
 });
 
-// Screen ids
+// ── Screen ids ─────────────────────────────────────────────────────────────
 const SCREEN = Object.freeze({
   GAME:     'game',
   BUILD:    'build',
-  CRAFT:    'craft',
+  STATION:  'station',
   SETTINGS: 'settings',
   GAMEOVER: 'gameover',
 });
 
-// Enemy AI state ids
+// ── Enemy AI ────────────────────────────────────────────────────────────────
 const AI = Object.freeze({
   PATROL: 0,
   SEEK:   1,
@@ -363,11 +509,11 @@ const AI = Object.freeze({
   FLEE:   4,
 });
 
-// Star field
+// ── Star field ─────────────────────────────────────────────────────────────
 const STAR_COUNT   = 250;
-const STAR_VIRTUAL = 3072; // size of tiling star virtual canvas
+const STAR_VIRTUAL = 3072;
 
-// HUD colors (pre-allocated strings — never build these in hot path)
+// ── Pre-allocated colour strings ───────────────────────────────────────────
 const C = Object.freeze({
   BG:          '#06090f',
   STAR_DIM:    '#404868',
@@ -376,6 +522,8 @@ const C = Object.freeze({
   HP_BAR:      '#40e060',
   HP_LOW:      '#e04020',
   SHIELD_BAR:  '#4080ff',
+  CARGO_BAR:   '#e0a020',
+  CARGO_FULL:  '#e04020',
   HUD_BG:      'rgba(0,6,16,0.75)',
   HUD_BORDER:  '#1a3050',
   WHITE:       '#ffffff',
@@ -384,11 +532,21 @@ const C = Object.freeze({
   RED:         '#ff3020',
   BULLET_PLR:  '#ffe080',
   BULLET_ENM:  '#ff5030',
-  DROP_IRON:   '#a0b8c8',
-  DROP_COPPER: '#e07830',
-  DROP_CRYSTAL:'#60d8ff',
-  DROP_TIT:    '#c0c8e0',
-  DROP_DM:     '#d060ff',
+  // Ore colours
+  ORE_IRON:        '#a0b8c8',
+  ORE_COPPER:      '#e07830',
+  ORE_CRYSTAL:     '#60d8ff',
+  ORE_TITANIUM:    '#c0c8e0',
+  ORE_DARK_MATTER: '#d060ff',
+  // Material colours
+  MAT_PLATE:  '#c8d8e0',
+  MAT_WIRE:   '#f0a050',
+  MAT_LENS:   '#80e8ff',
+  MAT_ALLOY:  '#e0e8ff',
+  MAT_CELL:   '#e080ff',
+  // Station
+  STATION_RANGE: 'rgba(60,200,100,0.15)',
+  DOCK_ACTIVE:   '#40e080',
 });
 
 // ═══ src/utils/Math2D.js ═══
@@ -533,11 +691,11 @@ class Input {
     this._justDownBtn = 0;
 
     // Virtual joystick (touch, left half of screen)
-    this.joyX = 0;  // -1..1
-    this.joyY = 0;
+    this.joyX       = 0;  // -1..1
+    this.joyY       = 0;
     this._joyId     = -1;
-    this._joyOx     = 0;
-    this._joyOy     = 0;
+    this.joyOriginX = 0;  // screen position of joystick anchor
+    this.joyOriginY = 0;
 
     // Touch fire (right half)
     this.touchFire  = false;
@@ -595,8 +753,9 @@ class Input {
       const p = this._canvasPos(t.clientX, t.clientY);
       if (p.x < this.canvas.width * 0.5) {
         if (this._joyId < 0) {
-          this._joyId = t.identifier;
-          this._joyOx = p.x; this._joyOy = p.y;
+          this._joyId     = t.identifier;
+          this.joyOriginX = p.x;
+          this.joyOriginY = p.y;
           this.joyX = 0; this.joyY = 0;
         }
       } else {
@@ -616,8 +775,8 @@ class Input {
       const t = e.changedTouches[i];
       const p = this._canvasPos(t.clientX, t.clientY);
       if (t.identifier === this._joyId) {
-        const dx = p.x - this._joyOx;
-        const dy = p.y - this._joyOy;
+        const dx = p.x - this.joyOriginX;
+        const dy = p.y - this.joyOriginY;
         const r  = Math.sqrt(dx * dx + dy * dy);
         const maxR = 50;
         if (r > 0) {
@@ -728,10 +887,7 @@ class Camera {
 
 // ═══ src/blocks/BlockDefs.js ═══
 // src/blocks/BlockDefs.js — data-driven block type definitions
-// To add a new block: create a new entry here (or import from a separate file).
-// No switch statements — behaviours are encoded as data.
 
-// Helper drawers
 function rect(ctx, x, y, w, h, fill, stroke, lw = 1) {
   ctx.fillStyle = fill;
   ctx.fillRect(x, y, w, h);
@@ -758,16 +914,8 @@ function circle(ctx, cx, cy, r, fill, stroke, lw = 1) {
   if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); }
 }
 
-// Each definition object:
-// id, name, hp, mass, powerDraw, powerGen,
-// cost: { [RES.xxx]: n, ... }  (null = not craftable)
-// effect: { thrust, weaponDmg, weaponRange, weaponCooldown, drillDmg,
-//           cargoBonus, shieldMax, shieldRegen, radarRange, drones }
-// canDelete: boolean (core = false)
-// draw(ctx, w, h) — draws sprite into a w×h canvas
-
 const BLOCK_DEFS = [
-  // ── CORE ─────────────────────────────────────────────────────────────────
+  // ── CORE ──────────────────────────────────────────────────────────────────
   {
     id: BID.CORE,
     name: 'コア',
@@ -776,7 +924,6 @@ const BLOCK_DEFS = [
     effect: {},
     draw(ctx, w, h) {
       rect(ctx, w*0.1, h*0.1, w*0.8, h*0.8, '#302000', '#e0a020', 2);
-      // Inner diamond
       polygon(ctx,
         [w*0.5,h*0.15, w*0.85,h*0.5, w*0.5,h*0.85, w*0.15,h*0.5],
         '#c08010', '#ffd040', 1.5
@@ -790,7 +937,7 @@ const BLOCK_DEFS = [
     id: BID.ARMOR,
     name: '装甲',
     hp: 350, mass: 10, powerDraw: 0, powerGen: 0,
-    cost: { [RES.IRON]: 3 }, canDelete: true,
+    cost: { [MAT.IRON_PLATE]: 2 }, canDelete: true,
     effect: {},
     draw(ctx, w, h) {
       rect(ctx, w*0.04, h*0.04, w*0.92, h*0.92, '#3a4a5c', '#6080a0', 2);
@@ -805,19 +952,15 @@ const BLOCK_DEFS = [
     id: BID.ENGINE,
     name: 'エンジン',
     hp: 80, mass: 3, powerDraw: 18, powerGen: 0,
-    cost: { [RES.IRON]: 5, [RES.COPPER]: 3 }, canDelete: true,
+    cost: { [MAT.IRON_PLATE]: 2, [MAT.COPPER_WIRE]: 1 }, canDelete: true,
     effect: { thrust: 900 },
     draw(ctx, w, h) {
-      // Body
       rect(ctx, w*0.12, h*0.18, w*0.56, h*0.64, '#182840', '#2060a0', 1.5);
-      // Nozzle cone (pointing right = +x direction)
       polygon(ctx,
         [w*0.68,h*0.24, w*0.94,h*0.5, w*0.68,h*0.76],
         '#1890d0', '#40c0ff', 1
       );
-      // Exhaust glow at left
       rect(ctx, w*0.02, h*0.32, w*0.12, h*0.36, 'rgba(60,160,255,0.35)', null);
-      // Detail lines
       ctx.strokeStyle = '#204060'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(w*0.25,h*0.28); ctx.lineTo(w*0.25,h*0.72); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(w*0.45,h*0.28); ctx.lineTo(w*0.45,h*0.72); ctx.stroke();
@@ -829,33 +972,28 @@ const BLOCK_DEFS = [
     id: BID.WEAPON,
     name: '武器',
     hp: 70, mass: 4, powerDraw: 8, powerGen: 0,
-    cost: { [RES.IRON]: 4, [RES.COPPER]: 2 }, canDelete: true,
+    cost: { [MAT.IRON_PLATE]: 1, [MAT.COPPER_WIRE]: 1 }, canDelete: true,
     effect: { weaponDmg: 25, weaponRange: 600, weaponCooldown: 0.5 },
     draw(ctx, w, h) {
-      // Turret base
       circle(ctx, w*0.4, h*0.5, w*0.26, '#300808', '#802020', 1.5);
-      // Gun barrel (pointing right)
       rect(ctx, w*0.36, h*0.42, w*0.58, h*0.16, '#601010', '#d03030', 1.5);
-      // Tip flash
       circle(ctx, w*0.94, h*0.5, w*0.07, '#ff8080', null);
     },
   },
 
-  // ── DRILL ────────────────────────────────────────────────────────────────
+  // ── DRILL ─────────────────────────────────────────────────────────────────
   {
     id: BID.DRILL,
     name: 'ドリル',
     hp: 120, mass: 5, powerDraw: 12, powerGen: 0,
-    cost: { [RES.IRON]: 4, [RES.TITANIUM]: 1 }, canDelete: true,
+    cost: { [MAT.IRON_PLATE]: 2, [MAT.TITANIUM_ALLOY]: 1 }, canDelete: true,
     effect: { drillDmg: 40, drillRange: 80 },
     draw(ctx, w, h) {
       rect(ctx, w*0.1, h*0.2, w*0.5, h*0.6, '#3a2208', '#c06010', 1.5);
-      // Drill cone
       polygon(ctx,
         [w*0.6,h*0.22, w*0.96,h*0.5, w*0.6,h*0.78],
         '#e08020', '#ffa040', 1.5
       );
-      // Spiral lines on cone
       ctx.strokeStyle = '#804010'; ctx.lineWidth = 1;
       for (let i = 0; i < 3; i++) {
         const ty = h * (0.32 + i * 0.14);
@@ -864,16 +1002,15 @@ const BLOCK_DEFS = [
     },
   },
 
-  // ── CONTAINER ────────────────────────────────────────────────────────────
+  // ── CONTAINER ─────────────────────────────────────────────────────────────
   {
     id: BID.CONTAINER,
     name: 'コンテナ',
     hp: 100, mass: 4, powerDraw: 0, powerGen: 0,
-    cost: { [RES.IRON]: 3, [RES.COPPER]: 1 }, canDelete: true,
-    effect: { cargoBonus: 200 },
+    cost: { [MAT.IRON_PLATE]: 2 }, canDelete: true,
+    effect: { cargoBonus: 20 },
     draw(ctx, w, h) {
       rect(ctx, w*0.06, h*0.1, w*0.88, h*0.8, '#0e2e10', '#30a040', 2);
-      // Three compartments
       ctx.fillStyle = '#1a4a20';
       for (let i = 0; i < 3; i++) {
         ctx.fillRect(w*(0.12 + i*0.26), h*0.18, w*0.2, h*0.64);
@@ -883,16 +1020,15 @@ const BLOCK_DEFS = [
     },
   },
 
-  // ── GENERATOR ────────────────────────────────────────────────────────────
+  // ── GENERATOR ─────────────────────────────────────────────────────────────
   {
     id: BID.GENERATOR,
     name: '発電機',
     hp: 90, mass: 5, powerDraw: 0, powerGen: 40,
-    cost: { [RES.COPPER]: 4, [RES.CRYSTAL]: 1 }, canDelete: true,
+    cost: { [MAT.COPPER_WIRE]: 2, [MAT.CRYSTAL_LENS]: 1 }, canDelete: true,
     effect: {},
     draw(ctx, w, h) {
       rect(ctx, w*0.08, h*0.08, w*0.84, h*0.84, '#282000', '#c0c000', 1.5);
-      // Lightning bolt
       polygon(ctx,
         [w*0.56,h*0.1, w*0.3,h*0.52, w*0.5,h*0.52, w*0.44,h*0.9, w*0.7,h*0.48, w*0.5,h*0.48],
         '#ffff20', '#fff060', 1
@@ -900,18 +1036,16 @@ const BLOCK_DEFS = [
     },
   },
 
-  // ── BATTERY ──────────────────────────────────────────────────────────────
+  // ── BATTERY ───────────────────────────────────────────────────────────────
   {
     id: BID.BATTERY,
     name: 'バッテリー',
     hp: 80, mass: 4, powerDraw: 0, powerGen: 0,
-    cost: { [RES.COPPER]: 2, [RES.CRYSTAL]: 2 }, canDelete: true,
+    cost: { [MAT.COPPER_WIRE]: 2, [MAT.CRYSTAL_LENS]: 1 }, canDelete: true,
     effect: { batteryCapacity: 300 },
     draw(ctx, w, h) {
       rect(ctx, w*0.08, h*0.15, w*0.76, h*0.7, '#001e20', '#20a0c0', 1.5);
-      // Terminal nub
       rect(ctx, w*0.84, h*0.35, w*0.1, h*0.3, '#208090', null);
-      // Cells
       ctx.fillStyle = '#006080';
       for (let i = 0; i < 4; i++) {
         ctx.fillRect(w*(0.12 + i*0.17), h*0.22, w*0.12, h*0.56);
@@ -919,22 +1053,20 @@ const BLOCK_DEFS = [
     },
   },
 
-  // ── SHIELD ───────────────────────────────────────────────────────────────
+  // ── SHIELD ────────────────────────────────────────────────────────────────
   {
     id: BID.SHIELD,
     name: 'シールド',
     hp: 60, mass: 2, powerDraw: 20, powerGen: 0,
-    cost: { [RES.CRYSTAL]: 3, [RES.COPPER]: 2 }, canDelete: true,
+    cost: { [MAT.CRYSTAL_LENS]: 2, [MAT.COPPER_WIRE]: 1 }, canDelete: true,
     effect: { shieldMax: 150, shieldRegen: 8 },
     draw(ctx, w, h) {
-      // Dome
       ctx.beginPath();
       ctx.arc(w*0.5, h*0.5, w*0.42, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(80,0,160,0.4)';
       ctx.fill();
       ctx.strokeStyle = '#a040ff'; ctx.lineWidth = 2;
       ctx.stroke();
-      // Inner ring
       ctx.beginPath();
       ctx.arc(w*0.5, h*0.5, w*0.22, 0, Math.PI * 2);
       ctx.strokeStyle = '#c080ff'; ctx.lineWidth = 1;
@@ -942,15 +1074,14 @@ const BLOCK_DEFS = [
     },
   },
 
-  // ── RADAR ────────────────────────────────────────────────────────────────
+  // ── RADAR ─────────────────────────────────────────────────────────────────
   {
     id: BID.RADAR,
     name: 'レーダー',
     hp: 50, mass: 1, powerDraw: 6, powerGen: 0,
-    cost: { [RES.COPPER]: 2, [RES.CRYSTAL]: 1 }, canDelete: true,
+    cost: { [MAT.COPPER_WIRE]: 1, [MAT.CRYSTAL_LENS]: 1 }, canDelete: true,
     effect: { radarRange: 1400 },
     draw(ctx, w, h) {
-      // Dish
       ctx.fillStyle = '#062010';
       ctx.beginPath();
       ctx.arc(w*0.5, h*0.7, w*0.4, Math.PI, 0);
@@ -959,28 +1090,24 @@ const BLOCK_DEFS = [
       ctx.beginPath();
       ctx.arc(w*0.5, h*0.7, w*0.4, Math.PI, 0);
       ctx.stroke();
-      // Mast
       ctx.strokeStyle = '#40c060'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(w*0.5,h*0.7); ctx.lineTo(w*0.5,h*0.15); ctx.stroke();
-      // Sweep arc
       ctx.strokeStyle = 'rgba(60,200,80,0.4)'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(w*0.5, h*0.7, w*0.32, -Math.PI*0.7, -Math.PI*0.3); ctx.stroke();
     },
   },
 
-  // ── DRONE HATCH ──────────────────────────────────────────────────────────
+  // ── DRONE HATCH ───────────────────────────────────────────────────────────
   {
     id: BID.DRONE_HATCH,
     name: 'ドローン格納庫',
     hp: 80, mass: 3, powerDraw: 10, powerGen: 0,
-    cost: { [RES.IRON]: 3, [RES.COPPER]: 3, [RES.CRYSTAL]: 1 }, canDelete: true,
+    cost: { [MAT.IRON_PLATE]: 2, [MAT.COPPER_WIRE]: 2, [MAT.CRYSTAL_LENS]: 1 }, canDelete: true,
     effect: { drones: 1 },
     draw(ctx, w, h) {
       rect(ctx, w*0.06, h*0.06, w*0.88, h*0.88, '#200830', '#d040ff', 1.5);
-      // Hatch lines
       ctx.strokeStyle = '#a020d0'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(w*0.5,h*0.06); ctx.lineTo(w*0.5,h*0.94); ctx.stroke();
-      // Drone silhouette
       polygon(ctx,
         [w*0.5,h*0.28, w*0.72,h*0.5, w*0.5,h*0.72, w*0.28,h*0.5],
         'rgba(200,80,255,0.5)', '#ff80ff', 1
@@ -1038,7 +1165,6 @@ function getBlockDmgSprite(id) { return getSprite('block_dmg_' + id); }
 // ═══ src/ship/ShipStats.js ═══
 // src/ship/ShipStats.js — compute ship stats from block composition
 
-// Stats object reused to avoid allocation
 const _stats = {
   mass: 0,
   hp: 0,
@@ -1049,8 +1175,8 @@ const _stats = {
   powerBalance: 0,
   shieldMax: 0,
   shieldRegen: 0,
-  cargoCapacity: 200,  // base cargo
-  radarRange: 600,     // base radar
+  cargoCapacity: BASE_CARGO,
+  radarRange: 600,
   weaponCount: 0,
   drillCount: 0,
   droneCount: 0,
@@ -1059,49 +1185,44 @@ const _stats = {
   blockCount: 0,
 };
 
-/**
- * Recalculate stats from the ship's block map.
- * Returns the shared _stats object — copy values you need to persist.
- */
 function calcStats(blocks) {
-  _stats.mass           = 0;
-  _stats.maxHp          = 0;
-  _stats.thrust         = 0;
-  _stats.powerGen       = 0;
-  _stats.powerDraw      = 0;
-  _stats.shieldMax      = 0;
-  _stats.shieldRegen    = 0;
-  _stats.cargoCapacity  = 200;
-  _stats.radarRange     = 600;
-  _stats.weaponCount    = 0;
-  _stats.drillCount     = 0;
-  _stats.droneCount     = 0;
-  _stats.batteryCapacity= 0;
-  _stats.engineCount    = 0;
-  _stats.blockCount     = 0;
+  _stats.mass            = 0;
+  _stats.maxHp           = 0;
+  _stats.thrust          = 0;
+  _stats.powerGen        = 0;
+  _stats.powerDraw       = 0;
+  _stats.shieldMax       = 0;
+  _stats.shieldRegen     = 0;
+  _stats.cargoCapacity   = BASE_CARGO;
+  _stats.radarRange      = 600;
+  _stats.weaponCount     = 0;
+  _stats.drillCount      = 0;
+  _stats.droneCount      = 0;
+  _stats.batteryCapacity = 0;
+  _stats.engineCount     = 0;
+  _stats.blockCount      = 0;
 
   for (const blk of blocks.values()) {
     const def = getDef(blk.typeId);
-    _stats.mass           += def.mass;
-    _stats.maxHp          += def.hp;
-    _stats.powerGen       += def.powerGen;
-    _stats.powerDraw      += def.powerDraw;
+    _stats.mass      += def.mass;
+    _stats.maxHp     += def.hp;
+    _stats.powerGen  += def.powerGen;
+    _stats.powerDraw += def.powerDraw;
 
     const eff = def.effect;
-    if (eff.thrust)          { _stats.thrust          += eff.thrust;          _stats.engineCount++; }
-    if (eff.shieldMax)         _stats.shieldMax        += eff.shieldMax;
-    if (eff.shieldRegen)       _stats.shieldRegen      += eff.shieldRegen;
-    if (eff.cargoBonus)        _stats.cargoCapacity    += eff.cargoBonus;
-    if (eff.radarRange)        _stats.radarRange        = Math.max(_stats.radarRange, eff.radarRange);
-    if (eff.weaponDmg)         _stats.weaponCount++;
-    if (eff.drillDmg)          _stats.drillCount++;
-    if (eff.drones)            _stats.droneCount       += eff.drones;
-    if (eff.batteryCapacity)   _stats.batteryCapacity  += eff.batteryCapacity;
+    if (eff.thrust)        { _stats.thrust        += eff.thrust;        _stats.engineCount++; }
+    if (eff.shieldMax)       _stats.shieldMax      += eff.shieldMax;
+    if (eff.shieldRegen)     _stats.shieldRegen    += eff.shieldRegen;
+    if (eff.cargoBonus)      _stats.cargoCapacity  += eff.cargoBonus;
+    if (eff.radarRange)      _stats.radarRange      = Math.max(_stats.radarRange, eff.radarRange);
+    if (eff.weaponDmg)       _stats.weaponCount++;
+    if (eff.drillDmg)        _stats.drillCount++;
+    if (eff.drones)          _stats.droneCount     += eff.drones;
+    if (eff.batteryCapacity) _stats.batteryCapacity += eff.batteryCapacity;
     _stats.blockCount++;
   }
 
   _stats.powerBalance = _stats.powerGen - _stats.powerDraw;
-  // Underpowered ships get reduced thrust
   if (_stats.powerBalance < 0 && _stats.powerGen > 0) {
     const ratio = _stats.powerGen / _stats.powerDraw;
     _stats.thrust *= ratio;
@@ -1111,99 +1232,159 @@ function calcStats(blocks) {
 }
 
 // ═══ src/inventory/Inventory.js ═══
-// src/inventory/Inventory.js — resources + block stock management
+// src/inventory/Inventory.js — 2-tier resource system: cargo (ship) + station storage
 
-// Resource display colours (index mirrors RES order)
-const RES_COLORS = {
-  [RES.IRON]:        '#a0b8c8',
-  [RES.COPPER]:      '#e07830',
-  [RES.CRYSTAL]:     '#60d8ff',
-  [RES.TITANIUM]:    '#c0c8e0',
-  [RES.DARK_MATTER]: '#d060ff',
-};
+const ORE_COLORS = Object.freeze({
+  [ORE.IRON]:        '#a0b8c8',
+  [ORE.COPPER]:      '#e07830',
+  [ORE.CRYSTAL]:     '#60d8ff',
+  [ORE.TITANIUM]:    '#c0c8e0',
+  [ORE.DARK_MATTER]: '#d060ff',
+});
 
-const RES_NAMES = {
-  [RES.IRON]:        '鉄',
-  [RES.COPPER]:      '銅',
-  [RES.CRYSTAL]:     '水晶',
-  [RES.TITANIUM]:    'チタン',
-  [RES.DARK_MATTER]: '暗黒物質',
-};
+const ORE_NAMES = Object.freeze({
+  [ORE.IRON]:        '鉄鉱石',
+  [ORE.COPPER]:      '銅鉱石',
+  [ORE.CRYSTAL]:     '水晶',
+  [ORE.TITANIUM]:    'チタン',
+  [ORE.DARK_MATTER]: '暗黒物質',
+});
+
+const MAT_COLORS = Object.freeze({
+  [MAT.IRON_PLATE]:     '#c8d8e0',
+  [MAT.COPPER_WIRE]:    '#f0a050',
+  [MAT.CRYSTAL_LENS]:   '#80e8ff',
+  [MAT.TITANIUM_ALLOY]: '#e0e8ff',
+  [MAT.ENERGY_CELL]:    '#e080ff',
+});
+
+const MAT_NAMES = Object.freeze({
+  [MAT.IRON_PLATE]:     '鉄板',
+  [MAT.COPPER_WIRE]:    '銅線',
+  [MAT.CRYSTAL_LENS]:   '水晶レンズ',
+  [MAT.TITANIUM_ALLOY]: 'チタン合金',
+  [MAT.ENERGY_CELL]:    'エネルギーセル',
+});
 
 class Inventory {
   constructor() {
-    // Resources: id -> count (always integers)
-    this._res = Object.create(null);
-    for (const k of Object.values(RES)) this._res[k] = 0;
+    // Ores carried on ship (weight-limited)
+    this._cargo       = Object.create(null);
+    this.cargoUsed     = 0;
+    this.cargoCapacity = 20; // updated from ship.stats.cargoCapacity
 
-    // Block stock: blockTypeId -> count
-    this._blocks = Object.create(null);
+    // Ores deposited at station
+    this._stationOre = Object.create(null);
 
-    // Total cargo used (resources only; 1 unit = 1 resource)
-    this.capacity = 200; // updated from ship stats
+    // Processed materials at station
+    this._materials  = Object.create(null);
+
+    // Crafted block stock at station
+    this._blockStock = Object.create(null);
   }
 
-  // ── Resources ──────────────────────────────────────────────────────────
+  // ── Cargo (ship) ───────────────────────────────────────────────────────────
 
-  getRes(id) { return this._res[id] ?? 0; }
+  setCapacity(cap) { this.cargoCapacity = Math.max(1, cap); }
 
-  addRes(id, amount) {
-    if (!this._res[id] !== undefined) return false;
-    this._res[id] = (this._res[id] || 0) + amount;
-    return true;
+  /** Add ore to ship cargo, respecting weight limit. Returns amount actually added. */
+  addOre(oreId, amount) {
+    const weight   = ORE_WEIGHT[oreId] ?? 1;
+    const free     = this.cargoCapacity - this.cargoUsed;
+    const canAdd   = Math.max(0, Math.floor(free / weight));
+    const actual   = Math.min(amount, canAdd);
+    if (actual <= 0) return 0;
+    this._cargo[oreId]  = (this._cargo[oreId]  || 0) + actual;
+    this.cargoUsed      += actual * weight;
+    return actual;
   }
 
-  /**
-   * Attempt to consume resources.
-   * @param {{ [id]: number }} cost
-   * @returns {boolean} true if successful (resources deducted), false if insufficient
-   */
-  spendRes(cost) {
-    for (const id in cost) {
-      if ((this._res[id] || 0) < cost[id]) return false;
+  getCargo(oreId)   { return this._cargo[oreId] ?? 0; }
+  cargoFull()       { return this.cargoUsed >= this.cargoCapacity; }
+  cargoEntries()    { return Object.entries(this._cargo); }
+
+  // ── Station ore ────────────────────────────────────────────────────────────
+
+  /** Move all ship cargo to station ore storage. */
+  depositAllOre() {
+    for (const id in this._cargo) {
+      if (this._cargo[id] > 0) {
+        this._stationOre[id] = (this._stationOre[id] || 0) + this._cargo[id];
+      }
     }
-    for (const id in cost) { this._res[id] -= cost[id]; }
-    return true;
+    this._cargo    = Object.create(null);
+    this.cargoUsed = 0;
   }
 
-  canAfford(cost) {
+  getStationOre(oreId) { return this._stationOre[oreId] ?? 0; }
+  stationOreEntries()  { return Object.entries(this._stationOre); }
+
+  // ── Materials (refined at station) ─────────────────────────────────────────
+
+  getMat(matId)    { return this._materials[matId] ?? 0; }
+  matEntries()     { return Object.entries(this._materials); }
+
+  addMat(matId, n) { this._materials[matId] = (this._materials[matId] || 0) + n; }
+
+  canAffordMat(cost) {
     for (const id in cost) {
-      if ((this._res[id] || 0) < cost[id]) return false;
+      if ((this._materials[id] || 0) < cost[id]) return false;
     }
     return true;
   }
 
-  totalRes() {
-    let t = 0;
-    for (const k in this._res) t += this._res[k];
-    return t;
+  spendMat(cost) {
+    if (!this.canAffordMat(cost)) return false;
+    for (const id in cost) this._materials[id] -= cost[id];
+    return true;
   }
 
-  resEntries() { return Object.entries(this._res); }
+  /** Refine station ore into material. Returns units produced (0 if insufficient). */
+  refineOre(oreId, matId, orePerMat) {
+    const have   = this._stationOre[oreId] ?? 0;
+    const canMake = Math.floor(have / orePerMat);
+    if (canMake <= 0) return 0;
+    const useOre = canMake * orePerMat;
+    this._stationOre[oreId] -= useOre;
+    this._materials[matId]   = (this._materials[matId] || 0) + canMake;
+    return canMake;
+  }
 
-  // ── Block stock ────────────────────────────────────────────────────────
+  // ── Block stock (crafted at station) ───────────────────────────────────────
 
-  getBlocks(typeId) { return this._blocks[typeId] ?? 0; }
-
-  addBlock(typeId, n = 1) { this._blocks[typeId] = (this._blocks[typeId] || 0) + n; }
+  getBlocks(typeId)  { return this._blockStock[typeId] ?? 0; }
+  blockEntries()     { return Object.entries(this._blockStock); }
+  addBlock(typeId, n = 1) { this._blockStock[typeId] = (this._blockStock[typeId] || 0) + n; }
 
   spendBlock(typeId, n = 1) {
-    if ((this._blocks[typeId] || 0) < n) return false;
-    this._blocks[typeId] -= n;
+    if ((this._blockStock[typeId] || 0) < n) return false;
+    this._blockStock[typeId] -= n;
     return true;
   }
 
-  blockEntries() { return Object.entries(this._blocks); }
-
-  // ── Serialisation ─────────────────────────────────────────────────────
+  // ── Serialisation ──────────────────────────────────────────────────────────
 
   toJSON() {
-    return { res: Object.assign({}, this._res), blocks: Object.assign({}, this._blocks) };
+    return {
+      cargo:      { ...this._cargo      },
+      stationOre: { ...this._stationOre },
+      materials:  { ...this._materials  },
+      blockStock: { ...this._blockStock },
+    };
   }
 
   fromJSON(data) {
-    if (data.res)    Object.assign(this._res,    data.res);
-    if (data.blocks) Object.assign(this._blocks, data.blocks);
+    if (data.cargo)      { this._cargo      = Object.create(null); Object.assign(this._cargo,      data.cargo);      }
+    if (data.stationOre) { this._stationOre = Object.create(null); Object.assign(this._stationOre, data.stationOre); }
+    if (data.materials)  { this._materials  = Object.create(null); Object.assign(this._materials,  data.materials);  }
+    if (data.blockStock) { this._blockStock = Object.create(null); Object.assign(this._blockStock, data.blockStock); }
+    this._recalcCargoUsed();
+  }
+
+  _recalcCargoUsed() {
+    let total = 0;
+    for (const id in this._cargo) total += (this._cargo[id] || 0) * (ORE_WEIGHT[id] ?? 1);
+    this.cargoUsed = total;
   }
 }
 
@@ -1518,42 +1699,35 @@ class Ship {
 // ═══ src/world/Asteroid.js ═══
 // src/world/Asteroid.js — asteroid entity with HP and resource drops
 
-// Pre-render N different asteroid shapes at startup
 const VARIANTS = 5;
 const MIN_R    = 20;
 const MAX_R    = 60;
 
 function initAsteroidSprites() {
-  // Use a fixed seed per variant for deterministic look
   for (let v = 0; v < VARIANTS; v++) {
     const r   = MIN_R + (v / (VARIANTS - 1)) * (MAX_R - MIN_R);
     const key = `ast_${v}`;
     const sz  = (r * 2 + 4) | 0;
     cacheSprite(key, sz, sz, (ctx, w, h) => {
       const cx = w / 2, cy = h / 2;
-      // Jagged polygon
       const pts = 9 + (v % 3);
       ctx.beginPath();
       for (let i = 0; i < pts; i++) {
-        const a = (i / pts) * Math.PI * 2;
-        // deterministic jitter using v
+        const a      = (i / pts) * Math.PI * 2;
         const jitter = 0.65 + 0.35 * Math.abs(Math.sin(v * 7.3 + i * 2.1));
-        const pr = r * jitter;
-        const px = cx + Math.cos(a) * pr;
-        const py = cy + Math.sin(a) * pr;
+        const pr     = r * jitter;
+        const px     = cx + Math.cos(a) * pr;
+        const py     = cy + Math.sin(a) * pr;
         if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
       }
       ctx.closePath();
-      // Base colour
       const g = ctx.createRadialGradient(cx - r*0.2, cy - r*0.2, r*0.1, cx, cy, r);
       g.addColorStop(0, '#a09080');
       g.addColorStop(1, '#504038');
       ctx.fillStyle = g;
       ctx.fill();
-      // Craters
       ctx.strokeStyle = '#302820'; ctx.lineWidth = 1;
       ctx.stroke();
-      // Surface detail lines
       ctx.strokeStyle = '#605040'; ctx.lineWidth = 0.8;
       for (let i = 0; i < 3; i++) {
         const ax = cx + (Math.sin(v * 3.1 + i) * r * 0.4);
@@ -1566,13 +1740,12 @@ function initAsteroidSprites() {
   }
 }
 
-// Resource drop table: which resources fall from asteroids
 const DROP_TABLE = [
-  { id: RES.IRON,        weight: 50, min: 3, max: 8  },
-  { id: RES.COPPER,      weight: 25, min: 2, max: 5  },
-  { id: RES.CRYSTAL,     weight: 15, min: 1, max: 3  },
-  { id: RES.TITANIUM,    weight: 8,  min: 1, max: 2  },
-  { id: RES.DARK_MATTER, weight: 2,  min: 1, max: 1  },
+  { id: ORE.IRON,        weight: 50, min: 3, max: 8 },
+  { id: ORE.COPPER,      weight: 25, min: 2, max: 5 },
+  { id: ORE.CRYSTAL,     weight: 15, min: 1, max: 3 },
+  { id: ORE.TITANIUM,    weight: 8,  min: 1, max: 2 },
+  { id: ORE.DARK_MATTER, weight: 2,  min: 1, max: 1 },
 ];
 const _totalWeight = DROP_TABLE.reduce((s, e) => s + e.weight, 0);
 
@@ -1585,7 +1758,7 @@ function rollDrop(rng) {
       return { id: entry.id, count };
     }
   }
-  return { id: RES.IRON, count: 1 };
+  return { id: ORE.IRON, count: 1 };
 }
 
 class Asteroid {
@@ -1597,10 +1770,10 @@ class Asteroid {
     this.maxHp   = 100;
     this.hp      = 100;
     this.angle   = 0;
-    this.av      = 0;        // angular velocity
+    this.av      = 0;
     this.alive   = false;
     this._pooled = false;
-    this._drops  = [];       // resource drops on death
+    this._drops  = [];
   }
 
   init(x, y, variant, rng) {
@@ -1616,7 +1789,6 @@ class Asteroid {
     this.hp     = this.maxHp;
     this.alive  = true;
 
-    // Pre-roll drops
     this._drops.length = 0;
     const numDrops = 1 + (this.variant >> 1);
     for (let i = 0; i < numDrops; i++) {
@@ -1628,12 +1800,10 @@ class Asteroid {
     this.x     += this.vx * dt;
     this.y     += this.vy * dt;
     this.angle += this.av * dt;
-    // Slow drift damping
-    this.vx *= 0.999;
-    this.vy *= 0.999;
+    this.vx    *= 0.999;
+    this.vy    *= 0.999;
   }
 
-  /** Returns array of { id, count } drops (only after hp <= 0). */
   getDrops() { return this._drops; }
 
   draw(ctx) {
@@ -1644,7 +1814,6 @@ class Asteroid {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    // Draw damage tint
     ctx.drawImage(sprite, -sw / 2, -sh / 2, sw, sh);
     if (this.hp < this.maxHp) {
       const t = 1 - this.hp / this.maxHp;
@@ -1658,7 +1827,7 @@ class Asteroid {
 }
 
 // ═══ src/world/DropItem.js ═══
-// src/world/DropItem.js — floating resource drop entity
+// src/world/DropItem.js — floating ore drop entity
 
 class DropItem {
   constructor() {
@@ -1668,8 +1837,8 @@ class DropItem {
     this.count  = 0;
     this.alive  = false;
     this._pooled= false;
-    this._life  = 30;   // seconds until auto-despawn
-    this._t     = 0;    // age timer (for bobbing animation)
+    this._life  = 30;
+    this._t     = 0;
   }
 
   init(x, y, resId, count) {
@@ -1697,7 +1866,7 @@ class DropItem {
     if (!this.alive) return;
     const bob  = Math.sin(this._t * 3) * 2;
     const size = 8;
-    const col  = RES_COLORS[this.resId] ?? '#ffffff';
+    const col  = ORE_COLORS[this.resId] ?? '#ffffff';
     ctx.save();
     ctx.translate(this.x, this.y + bob);
     ctx.fillStyle   = col;
@@ -1709,10 +1878,123 @@ class DropItem {
   }
 }
 
+// ═══ src/world/Station.js ═══
+// src/world/Station.js — animated home base station at world origin
+
+class Station {
+  constructor() {
+    this.x = STATION_X;
+    this.y = STATION_Y;
+    this._t = 0;
+  }
+
+  update(dt) { this._t += dt; }
+
+  draw(ctx) {
+    const t = this._t;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+
+    // Dock range faint ring
+    ctx.strokeStyle = 'rgba(60,200,100,0.08)';
+    ctx.fillStyle   = 'rgba(60,200,100,0.03)';
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    ctx.arc(0, 0, STATION_DOCK_RANGE, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Outer rotating ring
+    ctx.save();
+    ctx.rotate(t * 0.12);
+    ctx.strokeStyle = '#1a3858';
+    ctx.lineWidth   = 4;
+    ctx.beginPath();
+    ctx.arc(0, 0, 82, 0, Math.PI * 2);
+    ctx.stroke();
+    for (let i = 0; i < 6; i++) {
+      const a  = (i / 6) * Math.PI * 2;
+      const cx = Math.cos(a), cy = Math.sin(a);
+      ctx.strokeStyle = '#1a3050';
+      ctx.lineWidth   = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx * 30, cy * 30);
+      ctx.lineTo(cx * 82, cy * 82);
+      ctx.stroke();
+      ctx.fillStyle = '#2a5878';
+      ctx.beginPath();
+      ctx.arc(cx * 82, cy * 82, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#3a80b0';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Inner counter-rotating ring
+    ctx.save();
+    ctx.rotate(-t * 0.28);
+    ctx.strokeStyle = '#204870';
+    ctx.lineWidth   = 2.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 46, 0, Math.PI * 2);
+    ctx.stroke();
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2;
+      ctx.fillStyle   = '#305878';
+      ctx.strokeStyle = '#50a0d0';
+      ctx.lineWidth   = 1;
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * 46, Math.sin(a) * 46, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Static docking arms
+    for (let i = 0; i < 3; i++) {
+      const a  = (i / 3) * Math.PI * 2;
+      const cx = Math.cos(a), cy = Math.sin(a);
+      ctx.strokeStyle = '#285888';
+      ctx.lineWidth   = 5;
+      ctx.beginPath();
+      ctx.moveTo(cx * 26, cy * 26);
+      ctx.lineTo(cx * 56, cy * 56);
+      ctx.stroke();
+      ctx.fillStyle   = '#3a80c0';
+      ctx.strokeStyle = '#60c0ff';
+      ctx.lineWidth   = 1;
+      ctx.beginPath();
+      ctx.arc(cx * 56, cy * 56, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // Central hub
+    ctx.fillStyle   = '#0c1e30';
+    ctx.strokeStyle = '#3070b8';
+    ctx.lineWidth   = 2.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 26, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Core glow (pulsing)
+    const pulse = 0.7 + 0.3 * Math.sin(t * 2.4);
+    const glow  = ctx.createRadialGradient(0, 0, 2, 0, 0, 22);
+    glow.addColorStop(0, `rgba(60,180,255,${(0.7 * pulse).toFixed(2)})`);
+    glow.addColorStop(1, 'rgba(20,80,180,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, 22, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+}
+
 // ═══ src/world/World.js ═══
 // src/world/World.js — chunk-based infinite world with asteroid/enemy spawning
-
-// ── Object pools ───────────────────────────────────────────────────────────
 
 const asteroidPool = new Pool(
   () => new Asteroid(),
@@ -1724,24 +2006,19 @@ const dropPool = new Pool(
   (d) => { d.alive = false; d.count = 0; }
 );
 
-// Prewarm pools at startup
 asteroidPool.prewarm(40);
 dropPool.prewarm(60);
 
 class World {
   constructor(seed = 42) {
-    this._seed       = seed;
-    this._activeChunks = new Set();   // 'cx,cy' strings
-    this._asteroids  = [];            // live Asteroid refs
-    this._drops      = [];            // live DropItem refs
-    this._enemySpawnQueue = [];       // { cx, cy, x, y } pending spawns
+    this._seed            = seed;
+    this._activeChunks    = new Set();
+    this._asteroids       = [];
+    this._drops           = [];
+    this._enemySpawnQueue = [];
   }
 
-  init() {
-    initAsteroidSprites();
-  }
-
-  // ── Chunk system ───────────────────────────────────────────────────────
+  init() { initAsteroidSprites(); }
 
   _chunkKey(cx, cy) { return `${cx},${cy}`; }
 
@@ -1752,9 +2029,7 @@ class World {
     this._spawnChunkContent(cx, cy);
   }
 
-  _deactivateChunk(cx, cy) {
-    this._activeChunks.delete(this._chunkKey(cx, cy));
-  }
+  _deactivateChunk(cx, cy) { this._activeChunks.delete(this._chunkKey(cx, cy)); }
 
   _spawnChunkContent(cx, cy) {
     const seed = hashInt2(cx, cy) ^ this._seed;
@@ -1782,20 +2057,18 @@ class World {
     }
   }
 
-  /** Call each frame with the player's world position. */
+  /** Update world each frame. inventory.addOre() is cargo-capacity-aware. */
   update(playerX, playerY, dt, inventory) {
     const pcx = Math.floor(playerX / CHUNK_PX);
     const pcy = Math.floor(playerY / CHUNK_PX);
     const R   = ACTIVE_RADIUS_CHUNKS;
 
-    // Activate needed chunks
     for (let dx = -R; dx <= R; dx++) {
       for (let dy = -R; dy <= R; dy++) {
         this._activateChunk(pcx + dx, pcy + dy);
       }
     }
 
-    // Update asteroids, remove dead / out-of-range
     const astDespSq = ASTEROID_DESPAWN_DIST * ASTEROID_DESPAWN_DIST;
     for (let i = this._asteroids.length - 1; i >= 0; i--) {
       const a = this._asteroids[i];
@@ -1807,38 +2080,42 @@ class World {
       a.update(dt);
     }
 
-    // Update drops, auto-collect near player
     const pickSq = PICKUP_RANGE * PICKUP_RANGE;
     for (let i = this._drops.length - 1; i >= 0; i--) {
       const d = this._drops[i];
       if (!d.alive) { dropPool.release(d); this._drops.splice(i, 1); continue; }
       d.update(dt);
       if (dist2(d.x, d.y, playerX, playerY) < pickSq) {
-        inventory.addRes(d.resId, d.count);
-        d.alive = false;
-        dropPool.release(d);
-        this._drops.splice(i, 1);
+        const added = inventory.addOre(d.resId, d.count);
+        if (added > 0 || d._life < 1) {
+          // Only remove if at least partially picked up, or about to expire
+          if (added >= d.count) {
+            d.alive = false;
+            dropPool.release(d);
+            this._drops.splice(i, 1);
+          } else {
+            // Partial pickup — reduce count
+            d.count -= added;
+          }
+        }
       }
     }
   }
 
-  /** Check bullet/drill collision against all asteroids. */
   damageAsteroid(asteroid, amount) {
     asteroid.hp -= amount;
     if (asteroid.hp <= 0) {
-      // Spawn drops
       for (const drop of asteroid.getDrops()) {
         const d = dropPool.get();
         d.init(asteroid.x, asteroid.y, drop.id, drop.count);
         this._drops.push(d);
       }
       asteroid.alive = false;
-      return true; // destroyed
+      return true;
     }
     return false;
   }
 
-  /** Consume pending enemy spawn requests — caller handles instantiation. */
   drainEnemySpawns() {
     const q = this._enemySpawnQueue.slice();
     this._enemySpawnQueue.length = 0;
@@ -1848,15 +2125,8 @@ class World {
   get asteroids() { return this._asteroids; }
   get drops()     { return this._drops; }
 
-  // ── Rendering ─────────────────────────────────────────────────────────
-
-  drawDrops(ctx) {
-    for (const d of this._drops) d.draw(ctx);
-  }
-
-  drawAsteroids(ctx) {
-    for (const a of this._asteroids) a.draw(ctx);
-  }
+  drawDrops(ctx)     { for (const d of this._drops)     d.draw(ctx); }
+  drawAsteroids(ctx) { for (const a of this._asteroids) a.draw(ctx); }
 }
 
 // ═══ src/combat/Bullet.js ═══
@@ -2365,74 +2635,33 @@ const Effects = {
 };
 
 // ═══ src/craft/Recipes.js ═══
-// src/craft/Recipes.js — crafting recipe definitions
+// src/craft/Recipes.js — recipe definitions for refining and crafting
 
-// Each recipe: { id (=block typeId), name, cost: { [resId]: count }, output: 1 }
+// Refining: convert station ore into processed materials
+const REFINE_RECIPES = [
+  { oreId: ORE.IRON,        matId: MAT.IRON_PLATE,     orePerMat: 2, name: '鉄板精製'       },
+  { oreId: ORE.COPPER,      matId: MAT.COPPER_WIRE,    orePerMat: 2, name: '銅線精製'       },
+  { oreId: ORE.CRYSTAL,     matId: MAT.CRYSTAL_LENS,   orePerMat: 1, name: '水晶レンズ精製'  },
+  { oreId: ORE.TITANIUM,    matId: MAT.TITANIUM_ALLOY, orePerMat: 2, name: 'チタン合金精製'  },
+  { oreId: ORE.DARK_MATTER, matId: MAT.ENERGY_CELL,    orePerMat: 1, name: 'エネルギーセル精製' },
+];
+
+// Crafting: spend processed materials to create block items
 const RECIPES = [
-  {
-    id:   BID.ARMOR,
-    name: '装甲',
-    cost: { [RES.IRON]: 3 },
-    output: 1,
-  },
-  {
-    id:   BID.ENGINE,
-    name: 'エンジン',
-    cost: { [RES.IRON]: 5, [RES.COPPER]: 3 },
-    output: 1,
-  },
-  {
-    id:   BID.WEAPON,
-    name: '武器',
-    cost: { [RES.IRON]: 4, [RES.COPPER]: 2 },
-    output: 1,
-  },
-  {
-    id:   BID.DRILL,
-    name: 'ドリル',
-    cost: { [RES.IRON]: 4, [RES.TITANIUM]: 1 },
-    output: 1,
-  },
-  {
-    id:   BID.CONTAINER,
-    name: 'コンテナ',
-    cost: { [RES.IRON]: 3, [RES.COPPER]: 1 },
-    output: 1,
-  },
-  {
-    id:   BID.GENERATOR,
-    name: '発電機',
-    cost: { [RES.COPPER]: 4, [RES.CRYSTAL]: 1 },
-    output: 1,
-  },
-  {
-    id:   BID.BATTERY,
-    name: 'バッテリー',
-    cost: { [RES.COPPER]: 2, [RES.CRYSTAL]: 2 },
-    output: 1,
-  },
-  {
-    id:   BID.SHIELD,
-    name: 'シールド',
-    cost: { [RES.CRYSTAL]: 3, [RES.COPPER]: 2 },
-    output: 1,
-  },
-  {
-    id:   BID.RADAR,
-    name: 'レーダー',
-    cost: { [RES.COPPER]: 2, [RES.CRYSTAL]: 1 },
-    output: 1,
-  },
-  {
-    id:   BID.DRONE_HATCH,
-    name: 'ドローン格納庫',
-    cost: { [RES.IRON]: 3, [RES.COPPER]: 3, [RES.CRYSTAL]: 1 },
-    output: 1,
-  },
+  { id: BID.ARMOR,       name: '装甲',          cost: { [MAT.IRON_PLATE]: 2                                            }, output: 1 },
+  { id: BID.ENGINE,      name: 'エンジン',      cost: { [MAT.IRON_PLATE]: 2, [MAT.COPPER_WIRE]: 1                     }, output: 1 },
+  { id: BID.WEAPON,      name: '武器',          cost: { [MAT.IRON_PLATE]: 1, [MAT.COPPER_WIRE]: 1                     }, output: 1 },
+  { id: BID.DRILL,       name: 'ドリル',        cost: { [MAT.IRON_PLATE]: 2, [MAT.TITANIUM_ALLOY]: 1                  }, output: 1 },
+  { id: BID.CONTAINER,   name: 'コンテナ',      cost: { [MAT.IRON_PLATE]: 2                                            }, output: 1 },
+  { id: BID.GENERATOR,   name: '発電機',        cost: { [MAT.COPPER_WIRE]: 2, [MAT.CRYSTAL_LENS]: 1                   }, output: 1 },
+  { id: BID.BATTERY,     name: 'バッテリー',    cost: { [MAT.COPPER_WIRE]: 2, [MAT.CRYSTAL_LENS]: 1                   }, output: 1 },
+  { id: BID.SHIELD,      name: 'シールド',      cost: { [MAT.CRYSTAL_LENS]: 2, [MAT.COPPER_WIRE]: 1                   }, output: 1 },
+  { id: BID.RADAR,       name: 'レーダー',      cost: { [MAT.COPPER_WIRE]: 1, [MAT.CRYSTAL_LENS]: 1                   }, output: 1 },
+  { id: BID.DRONE_HATCH, name: 'ドローン格納庫', cost: { [MAT.IRON_PLATE]: 2, [MAT.COPPER_WIRE]: 2, [MAT.CRYSTAL_LENS]: 1 }, output: 1 },
 ];
 
 // ═══ src/craft/CraftSystem.js ═══
-// src/craft/CraftSystem.js — crafting logic
+// src/craft/CraftSystem.js — crafting logic (uses station materials)
 
 class CraftSystem {
   constructor(inventory) {
@@ -2443,7 +2672,7 @@ class CraftSystem {
   getAnnotatedRecipes() {
     return RECIPES.map(r => ({
       ...r,
-      canCraft: this._inv.canAfford(r.cost),
+      canCraft: this._inv.canAffordMat(r.cost),
     }));
   }
 
@@ -2451,26 +2680,24 @@ class CraftSystem {
   craft(recipeId) {
     const recipe = RECIPES.find(r => r.id === recipeId);
     if (!recipe) return false;
-    if (!this._inv.spendRes(recipe.cost)) return false;
+    if (!this._inv.spendMat(recipe.cost)) return false;
     this._inv.addBlock(recipe.id, recipe.output);
     return true;
   }
 
-  /** Format cost as human-readable string. */
+  /** Format MAT cost as human-readable string. */
   static costLabel(cost) {
     return Object.entries(cost)
-      .map(([id, n]) => `${RES_NAMES[id] ?? id}×${n}`)
+      .map(([id, n]) => `${MAT_NAMES[id] ?? id}×${n}`)
       .join(', ');
   }
 }
 
 // ═══ src/ui/HUD.js ═══
-// src/ui/HUD.js — in-game HUD drawn directly on canvas (no DOM, no allocation)
+// src/ui/HUD.js — in-game HUD drawn directly on canvas
 
-// Pre-allocated label strings for each resource
-const RES_ORDER = [RES.IRON, RES.COPPER, RES.CRYSTAL, RES.TITANIUM, RES.DARK_MATTER];
+const ORE_ORDER = [ORE.IRON, ORE.COPPER, ORE.CRYSTAL, ORE.TITANIUM, ORE.DARK_MATTER];
 
-// A reusable bar-drawing helper
 function drawBar(ctx, x, y, w, h, value, maxVal, fillColor, bgColor) {
   ctx.fillStyle = bgColor ?? 'rgba(0,0,0,0.5)';
   ctx.fillRect(x, y, w, h);
@@ -2480,7 +2707,7 @@ function drawBar(ctx, x, y, w, h, value, maxVal, fillColor, bgColor) {
     ctx.fillRect(x, y, w * ratio, h);
   }
   ctx.strokeStyle = '#1a3050';
-  ctx.lineWidth = 1;
+  ctx.lineWidth   = 1;
   ctx.strokeRect(x, y, w, h);
 }
 
@@ -2489,7 +2716,6 @@ class HUD {
     this._fps      = 0;
     this._fpsTimer = 0;
     this._frames   = 0;
-    this._showMinimap = true;
   }
 
   update(dt) {
@@ -2503,78 +2729,95 @@ class HUD {
   }
 
   /**
-   * Draw all HUD elements.
    * @param {CanvasRenderingContext2D} ctx
-   * @param {number} cw  canvas width
-   * @param {number} ch  canvas height
+   * @param {number} cw
+   * @param {number} ch
    * @param {Ship} playerShip
    * @param {Inventory} inventory
    * @param {Camera} camera
    * @param {World} world
    * @param {EnemyManager} enemies
+   * @param {Station} station
+   * @param {Input} input
    */
-  draw(ctx, cw, ch, playerShip, inventory, camera, world, enemies) {
-    this._drawShipStatus(ctx, playerShip);
-    this._drawResources(ctx, cw, ch, inventory);
+  draw(ctx, cw, ch, playerShip, inventory, camera, world, enemies, station, input) {
+    this._drawShipStatus(ctx, playerShip, inventory);
+    this._drawCargo(ctx, cw, ch, inventory);
     this._drawSpeed(ctx, cw, playerShip);
-    if (this._showMinimap) this._drawMinimap(ctx, cw, ch, playerShip, world, enemies);
+    this._drawMinimap(ctx, cw, ch, playerShip, world, enemies, station);
+    this._drawStationProximity(ctx, cw, ch, playerShip, station);
     this._drawKeyHints(ctx, cw, ch);
-    // FPS (top right corner)
+    if (input) this._drawJoystick(ctx, input);
+
     ctx.fillStyle = 'rgba(80,120,100,0.6)';
-    ctx.font = '10px monospace';
+    ctx.font      = '10px monospace';
     ctx.fillText(`${this._fps} FPS`, cw - 48, 12);
   }
 
-  _drawShipStatus(ctx, ship) {
+  _drawShipStatus(ctx, ship, inventory) {
     if (!ship || !ship.stats) return;
     const x = 12, y = 12;
     const bw = 140, bh = 10;
 
-    // HP
     ctx.fillStyle = '#8ab0d0';
-    ctx.font = 'bold 11px monospace';
+    ctx.font      = 'bold 11px monospace';
     ctx.fillText('HP', x, y + 9);
     drawBar(ctx, x + 22, y, bw, bh, ship.hp, ship.stats.maxHp,
       ship.hp / ship.stats.maxHp > 0.3 ? C.HP_BAR : C.HP_LOW,
       'rgba(0,0,0,0.5)'
     );
     ctx.fillStyle = '#a0c0d0';
-    ctx.font = '9px monospace';
+    ctx.font      = '9px monospace';
     ctx.fillText(`${Math.ceil(ship.hp)}/${ship.stats.maxHp}`, x + 22 + bw + 4, y + 9);
 
-    // Shield
     if (ship.shieldMax > 0) {
       ctx.fillStyle = '#8ab0d0';
-      ctx.font = 'bold 11px monospace';
+      ctx.font      = 'bold 11px monospace';
       ctx.fillText('SH', x, y + 24);
       drawBar(ctx, x + 22, y + 14, bw, bh, ship.shieldHp, ship.shieldMax, C.SHIELD_BAR, 'rgba(0,0,0,0.5)');
       ctx.fillStyle = '#a0c0d0';
-      ctx.font = '9px monospace';
+      ctx.font      = '9px monospace';
       ctx.fillText(`${Math.ceil(ship.shieldHp)}/${ship.shieldMax}`, x + 22 + bw + 4, y + 23);
     }
 
-    // Power balance
     if (ship.stats.powerGen > 0 || ship.stats.powerDraw > 0) {
-      const bal  = ship.stats.powerBalance;
-      const col  = bal >= 0 ? '#60ff80' : '#ff6040';
-      ctx.fillStyle = col;
-      ctx.font = '10px monospace';
+      const bal = ship.stats.powerBalance;
+      ctx.fillStyle = bal >= 0 ? '#60ff80' : '#ff6040';
+      ctx.font      = '10px monospace';
       ctx.fillText(`⚡ ${bal >= 0 ? '+' : ''}${bal | 0}`, x, y + 40);
     }
   }
 
-  _drawResources(ctx, cw, ch, inventory) {
-    const y  = ch - 10;
-    const x0 = 12;
-    let   cx = x0;
+  _drawCargo(ctx, cw, ch, inventory) {
+    const used = inventory.cargoUsed;
+    const cap  = inventory.cargoCapacity;
+    const full = used >= cap;
+    const x = 12, y = 56;
+    const bw = 140, bh = 10;
 
+    ctx.fillStyle = full ? C.CARGO_FULL : C.CARGO_BAR;
+    ctx.font      = 'bold 11px monospace';
+    ctx.fillText('積荷', x, y + 9);
+
+    drawBar(ctx, x + 36, y, bw, bh, used, cap,
+      full ? C.CARGO_FULL : C.CARGO_BAR,
+      'rgba(0,0,0,0.5)'
+    );
+    ctx.fillStyle = '#a0c0a0';
+    ctx.font      = '9px monospace';
+    ctx.fillText(`${used}/${cap}`, x + 36 + bw + 4, y + 9);
+
+    // Ore breakdown at bottom
+    const by = ch - 10;
+    let cx2  = 12;
     ctx.font = '10px monospace';
-    for (const resId of RES_ORDER) {
-      const count = inventory.getRes(resId);
+    for (const oreId of ORE_ORDER) {
+      const count = inventory.getCargo(oreId);
       if (count <= 0) continue;
-      ctx.fillStyle = RES_COLORS[resId] ?? '#ffffff';
-      ctx.fillText(`${RES_NAMES[resId]}:${count}`, cx, y);
-      cx += ctx.measureText(`${RES_NAMES[resId]}:${count}`).width + 14;
+      ctx.fillStyle = ORE_COLORS[oreId] ?? '#ffffff';
+      const label   = `${ORE_NAMES[oreId] ?? oreId}:${count}`;
+      ctx.fillText(label, cx2, by);
+      cx2 += ctx.measureText(label).width + 12;
     }
   }
 
@@ -2582,20 +2825,41 @@ class HUD {
     if (!ship) return;
     const spd = Math.sqrt(ship.vx * ship.vx + ship.vy * ship.vy) | 0;
     ctx.fillStyle = '#7090a0';
-    ctx.font = '10px monospace';
+    ctx.font      = '10px monospace';
     ctx.fillText(`${spd} u/s`, cw - 60, 24);
   }
 
-  _drawMinimap(ctx, cw, ch, playerShip, world, enemies) {
+  _drawStationProximity(ctx, cw, ch, ship, station) {
+    if (!ship || !station) return;
+    const d2    = dist2(ship.x, ship.y, station.x, station.y);
+    const dockR = STATION_DOCK_RANGE;
+    if (d2 > dockR * dockR) return;
+
+    const dist   = Math.sqrt(d2) | 0;
+    const inner  = dist2(ship.x, ship.y, station.x, station.y) < STATION_INNER_RANGE * STATION_INNER_RANGE;
+    const blink  = (Math.sin(Date.now() * 0.005) > 0);
+    const col    = inner ? C.DOCK_ACTIVE : (blink ? '#ffe060' : '#a0c080');
+
+    ctx.fillStyle = col;
+    ctx.font      = 'bold 13px monospace';
+    ctx.textAlign = 'center';
+    const label   = inner
+      ? '🛸 ドック接続中'
+      : `🛸 ステーション ${dist}m [E]でドック`;
+    ctx.fillText(label, cw * 0.5, ch - 48);
+    ctx.textAlign = 'left';
+  }
+
+  _drawMinimap(ctx, cw, ch, playerShip, world, enemies, station) {
     const mmW = 120, mmH = 120;
     const mmX = cw - mmW - 8;
     const mmY = ch - mmH - 8;
-    const scale = 1 / 6; // 1:6 world-to-minimap
+    const scale = 1 / 6;
 
-    ctx.fillStyle = 'rgba(0,6,16,0.75)';
+    ctx.fillStyle   = 'rgba(0,6,16,0.75)';
     ctx.fillRect(mmX, mmY, mmW, mmH);
     ctx.strokeStyle = C.HUD_BORDER;
-    ctx.lineWidth = 1;
+    ctx.lineWidth   = 1;
     ctx.strokeRect(mmX, mmY, mmW, mmH);
 
     const cx = mmX + mmW / 2;
@@ -2603,7 +2867,19 @@ class HUD {
     const px = playerShip?.x ?? 0;
     const py = playerShip?.y ?? 0;
 
-    // Asteroids (gray)
+    // Station dot (cyan)
+    if (station) {
+      const sx = cx + (station.x - px) * scale;
+      const sy = cy + (station.y - py) * scale;
+      if (sx >= mmX && sx <= mmX + mmW && sy >= mmY && sy <= mmY + mmH) {
+        ctx.fillStyle = '#40d8ff';
+        ctx.beginPath();
+        ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Asteroids
     ctx.fillStyle = '#605040';
     for (const a of world.asteroids) {
       const ax = cx + (a.x - px) * scale;
@@ -2613,7 +2889,7 @@ class HUD {
       }
     }
 
-    // Enemies (red)
+    // Enemies
     ctx.fillStyle = '#ff4020';
     for (const ship of enemies.ships) {
       const ex = cx + (ship.x - px) * scale;
@@ -2623,7 +2899,7 @@ class HUD {
       }
     }
 
-    // Drops (green dots)
+    // Drops
     ctx.fillStyle = '#40e060';
     for (const d of world.drops) {
       const dx = cx + (d.x - px) * scale;
@@ -2633,7 +2909,7 @@ class HUD {
       }
     }
 
-    // Player (white arrow)
+    // Player arrow
     ctx.fillStyle = '#ffffff';
     ctx.save();
     ctx.translate(cx, cy);
@@ -2646,9 +2922,36 @@ class HUD {
 
   _drawKeyHints(ctx, cw, ch) {
     ctx.fillStyle = 'rgba(60,80,100,0.5)';
-    ctx.font = '9px monospace';
-    const hints = '[WASD]移動  [Bキー]建造  [Cキー]クラフト  [クリック]射撃  [Eキー]ドリル';
-    ctx.fillText(hints, 12, ch - 24);
+    ctx.font      = '9px monospace';
+    ctx.fillText('[WASD]移動  [クリック/右側タップ]射撃  [E]ドリル/ドック  [Esc]設定', 12, ch - 24);
+  }
+
+  _drawJoystick(ctx, input) {
+    if (input._joyId < 0) return; // no active touch on left side
+    const ox   = input.joyOriginX;
+    const oy   = input.joyOriginY;
+    const jx   = input.joyX;
+    const jy   = input.joyY;
+    const maxR = 50;
+
+    // Base ring
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    ctx.strokeStyle = '#6090c0';
+    ctx.lineWidth   = 2;
+    ctx.beginPath();
+    ctx.arc(ox, oy, maxR, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Knob
+    ctx.fillStyle = 'rgba(80,160,220,0.5)';
+    ctx.beginPath();
+    ctx.arc(ox + jx * maxR, oy + jy * maxR, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#80c0ff';
+    ctx.lineWidth   = 1.5;
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
@@ -2890,46 +3193,145 @@ class BuildUI {
   }
 }
 
-// ═══ src/ui/CraftUI.js ═══
-// src/ui/CraftUI.js — crafting overlay (DOM-based)
+// ═══ src/ui/StationUI.js ═══
+// src/ui/StationUI.js — station overlay: deposit/refine, craft, dock tabs
 
-class CraftUI {
-  constructor(inventory, onClose) {
-    this._inv      = inventory;
-    this._onClose  = onClose;
-    this._craft    = new CraftSystem(inventory);
+class StationUI {
+  constructor(inventory, onClose, onEnterDock) {
+    this._inv        = inventory;
+    this._onClose    = onClose;
+    this._onEnterDock= onEnterDock;
+    this._craft      = new CraftSystem(inventory);
+    this._activeTab  = 'refine';
 
-    this._overlay  = document.getElementById('craft-overlay');
-    this._grid     = document.getElementById('recipe-grid');
-    this._closeBtn = document.getElementById('btn-craft-close');
+    this._overlay    = document.getElementById('station-overlay');
+    this._closeBtn   = document.getElementById('btn-station-close');
+    this._depositBtn = document.getElementById('btn-deposit-all');
+    this._dockBtn    = document.getElementById('btn-enter-build');
 
-    this._closeBtn.addEventListener('click', () => this._onClose());
-    this._cards = []; // cached card elements
+    this._panels = {
+      refine: document.getElementById('station-panel-refine'),
+      craft:  document.getElementById('station-panel-craft'),
+      dock:   document.getElementById('station-panel-dock'),
+    };
+
+    this._closeBtn?.addEventListener('click', () => this._onClose());
+    this._depositBtn?.addEventListener('click', () => {
+      this._inv.depositAllOre();
+      this._refresh();
+    });
+    this._dockBtn?.addEventListener('click', () => {
+      this._onEnterDock();
+    });
+
+    document.querySelectorAll('.station-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => this._switchTab(btn.dataset.tab));
+    });
   }
 
   show() {
-    this._overlay.classList.add('active');
-    this._rebuildGrid();
+    this._overlay?.classList.add('active');
+    this._switchTab('refine');
+    this._refresh();
   }
 
   hide() {
-    this._overlay.classList.remove('active');
+    this._overlay?.classList.remove('active');
   }
 
-  _rebuildGrid() {
-    this._grid.innerHTML = '';
-    this._cards.length   = 0;
+  _switchTab(tab) {
+    this._activeTab = tab;
+    document.querySelectorAll('.station-tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+    for (const [key, panel] of Object.entries(this._panels)) {
+      if (panel) panel.classList.toggle('hidden', key !== tab);
+    }
+    this._refresh();
+  }
 
-    const recipes = this._craft.getAnnotatedRecipes();
-    for (const recipe of recipes) {
+  _refresh() {
+    if (this._activeTab === 'refine') this._refreshRefine();
+    if (this._activeTab === 'craft')  this._refreshCraft();
+    if (this._activeTab === 'dock')   this._refreshDock();
+  }
+
+  _refreshRefine() {
+    const inv = this._inv;
+
+    // Cargo summary
+    const cargoEl = document.getElementById('station-cargo-info');
+    if (cargoEl) {
+      let html = `<div class="stat-row"><b>積荷</b>: ${inv.cargoUsed} / ${inv.cargoCapacity}</div>`;
+      for (const [id, count] of inv.cargoEntries()) {
+        if (count <= 0) continue;
+        const col  = ORE_COLORS[id] ?? '#fff';
+        const name = ORE_NAMES[id] ?? id;
+        html += `<div class="ore-row" style="color:${col}">${name}: ${count}</div>`;
+      }
+      cargoEl.innerHTML = html || '<div style="color:#405060">積荷なし</div>';
+    }
+
+    // Station ore stocks + refine buttons
+    const oreList = document.getElementById('station-ore-list');
+    if (oreList) {
+      oreList.innerHTML = '<div class="section-title">ステーション在庫 / 精製</div>';
+      for (const recipe of REFINE_RECIPES) {
+        const have    = inv.getStationOre(recipe.oreId);
+        const canMake = Math.floor(have / recipe.orePerMat);
+        const matHave = inv.getMat(recipe.matId);
+        const col     = ORE_COLORS[recipe.oreId] ?? '#fff';
+        const matCol  = MAT_COLORS[recipe.matId] ?? '#fff';
+        const matName = MAT_NAMES[recipe.matId]  ?? recipe.matId;
+        const oreName = ORE_NAMES[recipe.oreId]  ?? recipe.oreId;
+
+        const row = document.createElement('div');
+        row.className = 'refine-row';
+        row.innerHTML =
+          `<span style="color:${col}">${oreName}: ${have}</span>` +
+          ` → <span style="color:${matCol}">${matName}: ${matHave}</span>` +
+          `<button class="btn${canMake > 0 ? ' primary' : ''}" ${canMake <= 0 ? 'disabled' : ''}` +
+          ` data-ore="${recipe.oreId}" data-mat="${recipe.matId}" data-ratio="${recipe.orePerMat}">` +
+          `精製 (×${recipe.orePerMat}→1)</button>`;
+
+        row.querySelector('button').addEventListener('click', (e) => {
+          const btn = e.currentTarget;
+          inv.refineOre(btn.dataset.ore, btn.dataset.mat, Number(btn.dataset.ratio));
+          this._refreshRefine();
+        });
+        oreList.appendChild(row);
+      }
+    }
+  }
+
+  _refreshCraft() {
+    // Material summary
+    const matList = document.getElementById('station-mat-list');
+    if (matList) {
+      matList.innerHTML = '<div class="section-title">材料在庫</div>';
+      let any = false;
+      for (const [id, n] of this._inv.matEntries()) {
+        if (n <= 0) continue;
+        const col  = MAT_COLORS[id] ?? '#fff';
+        const name = MAT_NAMES[id]  ?? id;
+        matList.innerHTML += `<span class="mat-chip" style="color:${col}">${name}×${n}</span>`;
+        any = true;
+      }
+      if (!any) matList.innerHTML += '<span style="color:#405060">材料なし</span>';
+    }
+
+    // Recipe cards
+    const grid = document.getElementById('station-recipe-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    for (const recipe of this._craft.getAnnotatedRecipes()) {
       const card = document.createElement('div');
       card.className = 'recipe-card' + (recipe.canCraft ? ' can-craft' : '');
 
-      // Block preview
       const cv = document.createElement('canvas');
       cv.width = 36; cv.height = 36;
-      cv.style.display = 'block';
-      cv.style.margin  = '0 auto 6px';
+      cv.style.cssText = 'display:block;margin:0 auto 6px';
       const sprite = getBlockSprite(recipe.id);
       if (sprite) cv.getContext('2d').drawImage(sprite, 0, 0, 36, 36);
       card.appendChild(cv);
@@ -2944,24 +3346,30 @@ class CraftUI {
       costEl.textContent = CraftSystem.costLabel(recipe.cost);
       card.appendChild(costEl);
 
-      const countEl = document.createElement('div');
-      countEl.className   = 'recipe-count';
-      countEl.textContent = `所持: ${this._inv.getBlocks(recipe.id)}`;
-      card.appendChild(countEl);
+      const stockEl = document.createElement('div');
+      stockEl.className   = 'recipe-count';
+      stockEl.textContent = `所持: ${this._inv.getBlocks(recipe.id)}`;
+      card.appendChild(stockEl);
 
       const btn = document.createElement('button');
       btn.className   = 'btn' + (recipe.canCraft ? ' primary' : '');
-      btn.textContent = 'クラフト';
+      btn.textContent = '製造';
       btn.disabled    = !recipe.canCraft;
       btn.addEventListener('click', () => {
-        if (this._craft.craft(recipe.id)) {
-          this._rebuildGrid(); // refresh after crafting
-        }
+        if (this._craft.craft(recipe.id)) this._refreshCraft();
       });
       card.appendChild(btn);
 
-      this._grid.appendChild(card);
-      this._cards.push({ card, recipe });
+      grid.appendChild(card);
+    }
+  }
+
+  _refreshDock() {
+    const dockInfo = document.getElementById('station-dock-info');
+    if (dockInfo) {
+      const s = this._inv;
+      dockInfo.innerHTML =
+        `<div class="stat-row">積荷: ${s.cargoUsed} / ${s.cargoCapacity}</div>`;
     }
   }
 }
@@ -2971,17 +3379,15 @@ class CraftUI {
 
 class UIManager {
   constructor() {
-    this._screen = SCREEN.GAME;
-    this._listeners = new Map(); // screen -> callback()
+    this._screen    = SCREEN.GAME;
+    this._listeners = new Map();
 
-    // DOM overlay elements
     this._overlays = {
-      [SCREEN.CRAFT]:    document.getElementById('craft-overlay'),
+      [SCREEN.STATION]:  document.getElementById('station-overlay'),
       [SCREEN.SETTINGS]: document.getElementById('settings-overlay'),
       [SCREEN.GAMEOVER]: document.getElementById('gameover-overlay'),
     };
 
-    // Settings buttons
     document.getElementById('btn-settings-close')?.addEventListener('click', () => {
       this.switchTo(SCREEN.GAME);
     });
@@ -2992,31 +3398,22 @@ class UIManager {
   }
 
   onEvent(name, fn) { this._listeners.set(name, fn); }
-
-  _emit(name) { this._listeners.get(name)?.(); }
+  _emit(name)       { this._listeners.get(name)?.(); }
 
   get current() { return this._screen; }
 
   switchTo(screen) {
-    // Hide all overlays first
     for (const el of Object.values(this._overlays)) {
       if (el) el.classList.remove('active');
     }
-
-    const prev = this._screen;
     this._screen = screen;
-
-    // Show overlay for new screen (if any)
     const el = this._overlays[screen];
     if (el) el.classList.add('active');
-
     this._emit('screenChange');
     return this;
   }
 
-  showGameOver() {
-    this.switchTo(SCREEN.GAMEOVER);
-  }
+  showGameOver() { this.switchTo(SCREEN.GAMEOVER); }
 
   bindSettingsSaveLoad(onSave, onLoad) {
     document.getElementById('btn-settings-save')?.addEventListener('click', onSave);
@@ -3134,7 +3531,7 @@ class SaveSystem {
 // ═══ src/Game.js ═══
 // src/Game.js — main game controller: loop, state machine, systems coordination
 
-// ── Star field (pre-allocated, no per-frame allocation) ─────────────────────
+// ── Star field ────────────────────────────────────────────────────────────────
 
 const _starX    = new Float32Array(STAR_COUNT);
 const _starY    = new Float32Array(STAR_COUNT);
@@ -3150,7 +3547,7 @@ function _initStars() {
 }
 
 function _drawStars(ctx, camX, camY, cw, ch) {
-  const px = 0.04; // parallax factor (stars move slower than world)
+  const px = 0.04;
   const ox = ((camX * px) % STAR_VIRTUAL + STAR_VIRTUAL) % STAR_VIRTUAL;
   const oy = ((camY * px) % STAR_VIRTUAL + STAR_VIRTUAL) % STAR_VIRTUAL;
 
@@ -3158,10 +3555,8 @@ function _drawStars(ctx, camX, camY, cw, ch) {
     ctx.fillStyle = STAR_COLS[c];
     const sz = c === 2 ? 2 : 1;
     for (let i = c; i < STAR_COUNT; i += 3) {
-      // Tile the virtual canvas across the screen
       let x = ((_starX[i] - ox + STAR_VIRTUAL * 4) % STAR_VIRTUAL);
       let y = ((_starY[i] - oy + STAR_VIRTUAL * 4) % STAR_VIRTUAL);
-      // Repeat tile if screen is larger than STAR_VIRTUAL
       for (let tx = 0; x + tx * STAR_VIRTUAL < cw + STAR_VIRTUAL; tx++) {
         for (let ty = 0; y + ty * STAR_VIRTUAL < ch + STAR_VIRTUAL; ty++) {
           const sx = x + tx * STAR_VIRTUAL;
@@ -3175,10 +3570,10 @@ function _drawStars(ctx, camX, camY, cw, ch) {
   }
 }
 
-// ── Default player ship layout ───────────────────────────────────────────────
+// ── Default player ship ────────────────────────────────────────────────────────
 
 function _buildDefaultShip() {
-  const ship = new Ship(0, 0, true);
+  const ship = new Ship(0, -600, true); // Start away from station
   ship.addBlock(BID.CORE,      0,  0);
   ship.addBlock(BID.ARMOR,     0, -1);
   ship.addBlock(BID.ENGINE,   -2,  0);
@@ -3191,7 +3586,7 @@ function _buildDefaultShip() {
   return ship;
 }
 
-// ── Game class ────────────────────────────────────────────────────────────────
+// ── Game class ─────────────────────────────────────────────────────────────────
 
 class Game {
   constructor(canvas) {
@@ -3200,65 +3595,52 @@ class Game {
 
     this._screen  = SCREEN.GAME;
     this._running = false;
+    this._docked  = false;
 
     this._lastTime    = 0;
     this._accumulator = 0;
+    this._autoSaveTimer = 0;
+    this._drillTimer    = 0;
 
-    // Systems
     this.camera    = new Camera();
     this.input     = new Input(canvas);
     this.inventory = new Inventory();
     this.world     = new World(Math.random() * 999999 | 0);
+    this.station   = new Station();
     this.enemies   = new EnemyManager();
     this.hud       = new HUD();
 
-    // Player ship
     this.player    = null;
-
-    // UI managers (initialised after ship is created)
     this._uiMgr    = new UIManager();
     this._buildUI  = null;
-    this._craftUI  = null;
+    this._stationUI= null;
 
-    // Fire cooldown key (prevent spam)
-    this._drillTimer = 0;
-
-    // Bound loop function
     this._boundLoop = this._loop.bind(this);
   }
 
-  // ── Initialise ─────────────────────────────────────────────────────────────
+  // ── Initialise ──────────────────────────────────────────────────────────────
 
   async init() {
-    // Resize canvas to viewport
     this._resize();
     window.addEventListener('resize', () => this._resize());
 
-    // Pre-render all block sprites
     initSprites();
-
-    // Init world (asteroid sprites)
     this.world.init();
-
-    // Init star field
     _initStars();
 
-    // Create player ship
     this.player = _buildDefaultShip();
+    this._syncCargoCapacity();
 
-    // Starter resources
-    this.inventory.addRes(RES.IRON,   25);
-    this.inventory.addRes(RES.COPPER, 12);
-    // Starter block stock
-    this.inventory.addBlock(BID.ARMOR,     4);
-    this.inventory.addBlock(BID.ENGINE,    2);
+    // Starter block stock (player starts with some blocks already crafted)
+    this.inventory.addBlock(BID.ARMOR,     3);
+    this.inventory.addBlock(BID.ENGINE,    1);
     this.inventory.addBlock(BID.WEAPON,    1);
     this.inventory.addBlock(BID.GENERATOR, 1);
 
-    // Try to load saved game
     const saved = SaveSystem.loadLocal();
     if (saved) {
       SaveSystem.applyLoad(saved, this.player, this.inventory, this.camera);
+      this._syncCargoCapacity();
     } else {
       this.camera.x  = this.player.x;
       this.camera.y  = this.player.y;
@@ -3266,36 +3648,32 @@ class Game {
       this.camera.ty = this.player.y;
     }
 
-    // Build + craft UI
     this._buildUI = new BuildUI(
       this._canvas, this.player, this.inventory,
       () => this._exitBuild()
     );
-    this._craftUI = new CraftUI(
+
+    this._stationUI = new StationUI(
       this.inventory,
-      () => this._exitCraft()
+      () => this._exitStation(),
+      () => this._enterBuild()
     );
 
-    // UI manager events
-    this._uiMgr.onEvent('restart',  () => this._restart());
-    this._uiMgr.onEvent('screenChange', () => {}); // no-op, we handle manually
+    this._uiMgr.onEvent('restart',      () => this._restart());
+    this._uiMgr.onEvent('screenChange', () => { this._screen = this._uiMgr.current; });
 
     this._uiMgr.bindSettingsSaveLoad(
       () => SaveSystem.downloadSave(this.player, this.inventory, this.camera),
       () => SaveSystem.loadFromFile(data => {
         SaveSystem.applyLoad(data, this.player, this.inventory, this.camera);
+        this._syncCargoCapacity();
         this._uiMgr.switchTo(SCREEN.GAME);
         this._screen = SCREEN.GAME;
       })
     );
-
-    // Settings close is handled by UIManager constructor; sync our state here
-    this._uiMgr.onEvent('screenChange', () => {
-      this._screen = this._uiMgr.current;
-    });
   }
 
-  // ── Game loop ──────────────────────────────────────────────────────────────
+  // ── Game loop ───────────────────────────────────────────────────────────────
 
   start() {
     this._running  = true;
@@ -3319,137 +3697,128 @@ class Game {
       this.hud.update(rawDt);
     }
 
+    this.station.update(rawDt);
     this._render();
     this.input.flush();
   }
 
-  // ── Fixed update (physics) ────────────────────────────────────────────────
+  // ── Fixed update ────────────────────────────────────────────────────────────
 
   _fixedUpdate(dt) {
     this._handleInput(dt);
     this.player.update(dt);
+
+    // Sync cargo capacity whenever stats may have changed
+    this._syncCargoCapacity();
+
     this.camera.follow(this.player.x, this.player.y);
     this.camera.update();
 
-    // World (chunks, asteroids, drops)
     this.world.update(this.player.x, this.player.y, dt, this.inventory);
 
-    // Consume pending enemy spawns
     for (const spawn of this.world.drainEnemySpawns()) {
       this.enemies.spawn(spawn.x, spawn.y);
     }
 
-    // Enemies
     this.enemies.update(dt, this.player.x, this.player.y,
       (ship, tx, ty, isPlayer) => fireWeapons(ship, tx, ty, isPlayer)
     );
 
-    // Bullets
     updateBullets(dt);
-
-    // Collision: bullets <-> world
     this._checkCollisions();
-
-    // Effects
     Effects.update(dt);
-
-    // Drill
     this._drillTimer -= dt;
 
-    // Auto-save every 60 seconds (approximate)
-    this._autoSaveTimer = (this._autoSaveTimer || 0) + dt;
+    this._autoSaveTimer += dt;
     if (this._autoSaveTimer > 60) {
       SaveSystem.saveLocal(this.player, this.inventory, this.camera);
       this._autoSaveTimer = 0;
     }
 
-    // Game over check
     if (!this.player.alive) {
       this._screen = SCREEN.GAMEOVER;
       this._uiMgr.showGameOver();
     }
   }
 
-  // ── Input ──────────────────────────────────────────────────────────────────
+  // ── Input handling ──────────────────────────────────────────────────────────
 
   _handleInput(dt) {
-    const inp = this.input;
+    const inp  = this.input;
     const ship = this.player;
 
-    // Keyboard: W = forward, S = backward, A = rotate CCW, D = rotate CW
-    const fwd   = (inp.isDown('KeyW') || inp.isDown('ArrowUp'))    ? 1 : 0;
+    const fwd   = (inp.isDown('KeyW') || inp.isDown('ArrowUp'))    ? 1   : 0;
     const back  = (inp.isDown('KeyS') || inp.isDown('ArrowDown'))  ? 0.3 : 0;
-    const left  = (inp.isDown('KeyA') || inp.isDown('ArrowLeft'))  ? 1 : 0;
-    const right = (inp.isDown('KeyD') || inp.isDown('ArrowRight')) ? 1 : 0;
+    const left  = (inp.isDown('KeyA') || inp.isDown('ArrowLeft'))  ? 1   : 0;
+    const right = (inp.isDown('KeyD') || inp.isDown('ArrowRight')) ? 1   : 0;
 
-    // Touch joystick
-    const jx = inp.joyX;
-    const jy = inp.joyY;
+    const jx     = inp.joyX;
+    const jy     = inp.joyY;
     const joyMag = Math.sqrt(jx * jx + jy * jy);
 
     let throttle = Math.max(fwd - back, 0);
     let torque   = right - left;
 
     if (joyMag > 0.1) {
-      // Touch: joystick drives both rotation and thrust
-      const shipFwd = { x: Math.cos(ship.angle), y: Math.sin(ship.angle) };
-      const dot     = jx * shipFwd.x + jy * shipFwd.y;
-      throttle      = Math.max(dot, 0) * joyMag;
-      const cross   = jx * shipFwd.y - jy * shipFwd.x;
-      torque        = -cross * 3;
+      const cos = Math.cos(ship.angle), sin = Math.sin(ship.angle);
+      const dot = jx * cos + jy * sin;
+      throttle  = Math.max(dot, 0) * joyMag;
+      const cross = jx * sin - jy * cos;
+      torque    = cross * 3;
     }
 
     ship.applyThrust(throttle, torque, dt);
 
-    // Screen-space mouse position → world
-    const cw = this._canvas.width, ch = this._canvas.height;
+    const cw     = this._canvas.width;
+    const ch     = this._canvas.height;
     const mouseWX = this.camera.toWX(inp.mouseX, cw);
     const mouseWY = this.camera.toWY(inp.mouseY, ch);
 
-    // Fire (left mouse button or touch fire)
     const firing = inp.mouseDown(0) || inp.touchFire;
     const fireX  = inp.touchFire ? this.camera.toWX(inp.touchFireX, cw) : mouseWX;
     const fireY  = inp.touchFire ? this.camera.toWY(inp.touchFireY, ch) : mouseWY;
-    if (firing) {
-      fireWeapons(ship, fireX, fireY, true);
-    }
+    if (firing) fireWeapons(ship, fireX, fireY, true);
 
-    // Engine trail effect
     if (throttle > 0.1 && ship.stats && ship.stats.engineCount > 0) {
       for (const blk of ship.blocks.values()) {
         if (blk.typeId !== BID.ENGINE) continue;
-        const cos = Math.cos(ship.angle);
-        const sin = Math.sin(ship.angle);
-        const lx = blk.gx * BS;
-        const ly = blk.gy * BS;
-        const wx = ship.x + lx * cos - ly * sin;
-        const wy = ship.y + lx * sin + ly * cos;
+        const cos = Math.cos(ship.angle), sin = Math.sin(ship.angle);
+        const wx  = ship.x + blk.gx * BS * cos - blk.gy * BS * sin;
+        const wy  = ship.y + blk.gx * BS * sin + blk.gy * BS * cos;
         Effects.engineTrail(wx - cos * BS * 0.8, wy - sin * BS * 0.8);
       }
     }
 
-    // Drill (E key)
     if ((inp.isDown('KeyE') || inp.isDown('Space')) && this._drillTimer <= 0) {
-      this._tryDrill();
-      this._drillTimer = 0.12;
+      // If near station, dock instead of drill
+      const d2 = dist2(ship.x, ship.y, this.station.x, this.station.y);
+      if (d2 < STATION_INNER_RANGE * STATION_INNER_RANGE) {
+        if (inp.justDown('KeyE') || inp.justDown('Space')) {
+          this._enterStation();
+        }
+      } else {
+        this._tryDrill();
+        this._drillTimer = 0.12;
+      }
     }
 
-    // Mode switches
-    if (inp.justDown('KeyB')) this._enterBuild();
-    if (inp.justDown('KeyC')) this._enterCraft();
+    if (inp.justDown('KeyB')) {
+      // Build only while docked
+      if (this._docked) this._enterBuild();
+    }
     if (inp.justDown('Escape') || inp.justDown('KeyP')) this._enterSettings();
   }
 
-  // ── Drill ─────────────────────────────────────────────────────────────────
+  // ── Drill ───────────────────────────────────────────────────────────────────
 
   _tryDrill() {
     const ship = this.player;
     if (!ship.stats || ship.stats.drillCount === 0) return;
 
-    let closestDist2 = Infinity;
-    let closestAst   = null;
     const drillRange = 80 + BS * 1.5;
     const rangeSq    = drillRange * drillRange;
+    let closestDist2 = Infinity;
+    let closestAst   = null;
 
     for (const a of this.world.asteroids) {
       if (!a.alive) continue;
@@ -3474,7 +3843,7 @@ class Game {
     }
   }
 
-  // ── Collision detection ────────────────────────────────────────────────────
+  // ── Collision detection ─────────────────────────────────────────────────────
 
   _checkCollisions() {
     const enemyShips = this.enemies.ships;
@@ -3484,84 +3853,78 @@ class Game {
       if (!b.alive) continue;
 
       if (b.isPlayer) {
-        // vs asteroids
         let hit = false;
         for (const a of this.world.asteroids) {
           if (!a.alive) continue;
           const r = a.radius;
           if (dist2(b.x, b.y, a.x, a.y) < r * r) {
             const destroyed = this.world.damageAsteroid(a, b.damage);
-            if (destroyed) {
-              Effects.explosion(a.x, a.y, a.radius / 28);
-              this.camera.addShake(3);
-            } else {
-              Effects.drillSpark(b.x, b.y);
-            }
+            if (destroyed) { Effects.explosion(a.x, a.y, a.radius / 28); this.camera.addShake(3); }
+            else             Effects.drillSpark(b.x, b.y);
             b.alive = false; hit = true; break;
           }
         }
         if (hit) continue;
 
-        // vs enemies
         for (const ship of enemyShips) {
           if (!ship.alive) continue;
           const r = ship.radius + 6;
           if (dist2(b.x, b.y, ship.x, ship.y) < r * r) {
-            const prevShield = ship.shieldHp;
+            const prev = ship.shieldHp;
             ship.damageAt(b.x, b.y, b.damage);
-            if (prevShield > 0) Effects.shieldHit(b.x, b.y);
-            else                Effects.explosion(b.x, b.y, 0.5);
-            if (!ship.alive)    Effects.explosion(ship.x, ship.y, 2.5);
+            if (prev > 0) Effects.shieldHit(b.x, b.y);
+            else          Effects.explosion(b.x, b.y, 0.5);
+            if (!ship.alive) Effects.explosion(ship.x, ship.y, 2.5);
             b.alive = false;
             break;
           }
         }
-
       } else {
-        // Enemy bullet vs player
         if (!this.player.alive) continue;
         const pr = this.player.radius + 6;
         if (dist2(b.x, b.y, this.player.x, this.player.y) < pr * pr) {
-          const prevShield = this.player.shieldHp;
+          const prev = this.player.shieldHp;
           this.player.damageAt(b.x, b.y, b.damage);
-          if (prevShield > 0) {
-            Effects.shieldHit(b.x, b.y);
-            this.camera.addShake(4);
-          } else {
-            Effects.explosion(b.x, b.y, 0.4);
-            this.camera.addShake(9);
-          }
+          if (prev > 0) { Effects.shieldHit(b.x, b.y); this.camera.addShake(4); }
+          else          { Effects.explosion(b.x, b.y, 0.4); this.camera.addShake(9); }
           b.alive = false;
         }
       }
     }
   }
 
-  // ── Screen transitions ────────────────────────────────────────────────────
+  // ── Screen transitions ──────────────────────────────────────────────────────
+
+  _enterStation() {
+    if (this._screen !== SCREEN.GAME) return;
+    this._docked = true;
+    this._screen = SCREEN.STATION;
+    this._uiMgr.switchTo(SCREEN.STATION);
+    this._stationUI.show();
+  }
+
+  _exitStation() {
+    this._docked = false;
+    this._stationUI.hide();
+    this._uiMgr.switchTo(SCREEN.GAME);
+    this._screen = SCREEN.GAME;
+  }
 
   _enterBuild() {
+    if (!this._docked) return; // dock required
     if (this._screen === SCREEN.BUILD) { this._exitBuild(); return; }
+    this._stationUI.hide();
     this._screen = SCREEN.BUILD;
     this._buildUI.show();
   }
 
   _exitBuild() {
-    this._screen = SCREEN.GAME;
+    this._screen = SCREEN.STATION;
     this._buildUI.hide();
     this.player.recalcStats();
-    // Restore HP if it now exceeds max after blocks removed
+    this._syncCargoCapacity();
     this.player.hp = Math.min(this.player.hp || this.player.stats.maxHp, this.player.stats.maxHp);
-  }
-
-  _enterCraft() {
-    if (this._screen === SCREEN.CRAFT) { this._exitCraft(); return; }
-    this._screen = SCREEN.CRAFT;
-    this._craftUI.show();
-  }
-
-  _exitCraft() {
-    this._screen = SCREEN.GAME;
-    this._craftUI.hide();
+    this._stationUI.show();
   }
 
   _enterSettings() {
@@ -3574,41 +3937,47 @@ class Game {
     }
   }
 
+  _syncCargoCapacity() {
+    if (this.player?.stats) {
+      this.inventory.setCapacity(this.player.stats.cargoCapacity);
+    }
+  }
+
   _restart() {
-    // Rebuild player ship
-    this.player.blocks.clear();
-    this.player._statsDirty  = true;
-    this.player._spriteDirty = true;
-    this.player._sprite      = null;
-    this.player.x     = 0; this.player.y = 0;
-    this.player.vx    = 0; this.player.vy = 0;
-    this.player.angle = 0; this.player.av = 0;
-    this.player.alive = true;
+    const ship = this.player;
+    ship.blocks.clear();
+    ship._statsDirty  = true;
+    ship._spriteDirty = true;
+    ship._sprite      = null;
+    ship.x = -600; ship.y = 0;
+    ship.vx = 0;   ship.vy = 0;
+    ship.angle = 0; ship.av = 0;
+    ship.alive = true;
 
-    this.player.addBlock(BID.CORE,      0,  0);
-    this.player.addBlock(BID.ARMOR,     0, -1);
-    this.player.addBlock(BID.ENGINE,   -2,  0);
-    this.player.addBlock(BID.WEAPON,    1,  0);
-    this.player.addBlock(BID.GENERATOR,-1,  1);
-    this.player.recalcStats();
-    this.player.hp       = this.player.stats.maxHp;
-    this.player.shieldHp = 0;
+    ship.addBlock(BID.CORE,      0,  0);
+    ship.addBlock(BID.ARMOR,     0, -1);
+    ship.addBlock(BID.ENGINE,   -2,  0);
+    ship.addBlock(BID.WEAPON,    1,  0);
+    ship.addBlock(BID.GENERATOR,-1,  1);
+    ship.recalcStats();
+    ship.hp       = ship.stats.maxHp;
+    ship.shieldHp = 0;
 
-    this.camera.x  = 0; this.camera.y  = 0;
-    this.camera.tx = 0; this.camera.ty = 0;
+    this.camera.x  = ship.x; this.camera.y  = ship.y;
+    this.camera.tx = ship.x; this.camera.ty = ship.y;
 
+    this._docked = false;
     this._screen = SCREEN.GAME;
     this._uiMgr.switchTo(SCREEN.GAME);
   }
 
-  // ── Rendering ─────────────────────────────────────────────────────────────
+  // ── Rendering ────────────────────────────────────────────────────────────────
 
   _render() {
-    const ctx  = this._ctx;
-    const cw   = this._canvas.width;
-    const ch   = this._canvas.height;
+    const ctx = this._ctx;
+    const cw  = this._canvas.width;
+    const ch  = this._canvas.height;
 
-    // Clear
     ctx.fillStyle = C.BG;
     ctx.fillRect(0, 0, cw, ch);
 
@@ -3617,13 +3986,12 @@ class Game {
       return;
     }
 
-    // Stars (screen-space parallax — before camera transform)
     _drawStars(ctx, this.camera.x, this.camera.y, cw, ch);
 
-    // World-space rendering
     ctx.save();
     this.camera.apply(ctx);
 
+    this.station.draw(ctx);
     this.world.drawAsteroids(ctx);
     this.world.drawDrops(ctx);
     drawBullets(ctx);
@@ -3634,13 +4002,11 @@ class Game {
 
     ctx.restore();
 
-    // HUD (screen-space)
-    if (this._screen === SCREEN.GAME) {
-      this.hud.draw(ctx, cw, ch, this.player, this.inventory, this.camera, this.world, this.enemies);
+    if (this._screen === SCREEN.GAME || this._screen === SCREEN.STATION) {
+      this.hud.draw(ctx, cw, ch, this.player, this.inventory,
+        this.camera, this.world, this.enemies, this.station, this.input);
     }
   }
-
-  // ── Utilities ─────────────────────────────────────────────────────────────
 
   _resize() {
     this._canvas.width  = window.innerWidth;

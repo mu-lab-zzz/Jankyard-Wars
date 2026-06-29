@@ -1,12 +1,11 @@
-// src/ui/HUD.js — in-game HUD drawn directly on canvas (no DOM, no allocation)
+// src/ui/HUD.js — in-game HUD drawn directly on canvas
 
-import { C, RES } from '../constants.js';
-import { RES_COLORS, RES_NAMES } from '../inventory/Inventory.js';
+import { C, ORE, STATION_DOCK_RANGE, STATION_INNER_RANGE } from '../constants.js';
+import { ORE_COLORS, ORE_NAMES } from '../inventory/Inventory.js';
+import { dist2 } from '../utils/Math2D.js';
 
-// Pre-allocated label strings for each resource
-const RES_ORDER = [RES.IRON, RES.COPPER, RES.CRYSTAL, RES.TITANIUM, RES.DARK_MATTER];
+const ORE_ORDER = [ORE.IRON, ORE.COPPER, ORE.CRYSTAL, ORE.TITANIUM, ORE.DARK_MATTER];
 
-// A reusable bar-drawing helper
 function drawBar(ctx, x, y, w, h, value, maxVal, fillColor, bgColor) {
   ctx.fillStyle = bgColor ?? 'rgba(0,0,0,0.5)';
   ctx.fillRect(x, y, w, h);
@@ -16,7 +15,7 @@ function drawBar(ctx, x, y, w, h, value, maxVal, fillColor, bgColor) {
     ctx.fillRect(x, y, w * ratio, h);
   }
   ctx.strokeStyle = '#1a3050';
-  ctx.lineWidth = 1;
+  ctx.lineWidth   = 1;
   ctx.strokeRect(x, y, w, h);
 }
 
@@ -25,7 +24,6 @@ export class HUD {
     this._fps      = 0;
     this._fpsTimer = 0;
     this._frames   = 0;
-    this._showMinimap = true;
   }
 
   update(dt) {
@@ -39,78 +37,95 @@ export class HUD {
   }
 
   /**
-   * Draw all HUD elements.
    * @param {CanvasRenderingContext2D} ctx
-   * @param {number} cw  canvas width
-   * @param {number} ch  canvas height
+   * @param {number} cw
+   * @param {number} ch
    * @param {Ship} playerShip
    * @param {Inventory} inventory
    * @param {Camera} camera
    * @param {World} world
    * @param {EnemyManager} enemies
+   * @param {Station} station
+   * @param {Input} input
    */
-  draw(ctx, cw, ch, playerShip, inventory, camera, world, enemies) {
-    this._drawShipStatus(ctx, playerShip);
-    this._drawResources(ctx, cw, ch, inventory);
+  draw(ctx, cw, ch, playerShip, inventory, camera, world, enemies, station, input) {
+    this._drawShipStatus(ctx, playerShip, inventory);
+    this._drawCargo(ctx, cw, ch, inventory);
     this._drawSpeed(ctx, cw, playerShip);
-    if (this._showMinimap) this._drawMinimap(ctx, cw, ch, playerShip, world, enemies);
+    this._drawMinimap(ctx, cw, ch, playerShip, world, enemies, station);
+    this._drawStationProximity(ctx, cw, ch, playerShip, station);
     this._drawKeyHints(ctx, cw, ch);
-    // FPS (top right corner)
+    if (input) this._drawJoystick(ctx, input);
+
     ctx.fillStyle = 'rgba(80,120,100,0.6)';
-    ctx.font = '10px monospace';
+    ctx.font      = '10px monospace';
     ctx.fillText(`${this._fps} FPS`, cw - 48, 12);
   }
 
-  _drawShipStatus(ctx, ship) {
+  _drawShipStatus(ctx, ship, inventory) {
     if (!ship || !ship.stats) return;
     const x = 12, y = 12;
     const bw = 140, bh = 10;
 
-    // HP
     ctx.fillStyle = '#8ab0d0';
-    ctx.font = 'bold 11px monospace';
+    ctx.font      = 'bold 11px monospace';
     ctx.fillText('HP', x, y + 9);
     drawBar(ctx, x + 22, y, bw, bh, ship.hp, ship.stats.maxHp,
       ship.hp / ship.stats.maxHp > 0.3 ? C.HP_BAR : C.HP_LOW,
       'rgba(0,0,0,0.5)'
     );
     ctx.fillStyle = '#a0c0d0';
-    ctx.font = '9px monospace';
+    ctx.font      = '9px monospace';
     ctx.fillText(`${Math.ceil(ship.hp)}/${ship.stats.maxHp}`, x + 22 + bw + 4, y + 9);
 
-    // Shield
     if (ship.shieldMax > 0) {
       ctx.fillStyle = '#8ab0d0';
-      ctx.font = 'bold 11px monospace';
+      ctx.font      = 'bold 11px monospace';
       ctx.fillText('SH', x, y + 24);
       drawBar(ctx, x + 22, y + 14, bw, bh, ship.shieldHp, ship.shieldMax, C.SHIELD_BAR, 'rgba(0,0,0,0.5)');
       ctx.fillStyle = '#a0c0d0';
-      ctx.font = '9px monospace';
+      ctx.font      = '9px monospace';
       ctx.fillText(`${Math.ceil(ship.shieldHp)}/${ship.shieldMax}`, x + 22 + bw + 4, y + 23);
     }
 
-    // Power balance
     if (ship.stats.powerGen > 0 || ship.stats.powerDraw > 0) {
-      const bal  = ship.stats.powerBalance;
-      const col  = bal >= 0 ? '#60ff80' : '#ff6040';
-      ctx.fillStyle = col;
-      ctx.font = '10px monospace';
+      const bal = ship.stats.powerBalance;
+      ctx.fillStyle = bal >= 0 ? '#60ff80' : '#ff6040';
+      ctx.font      = '10px monospace';
       ctx.fillText(`⚡ ${bal >= 0 ? '+' : ''}${bal | 0}`, x, y + 40);
     }
   }
 
-  _drawResources(ctx, cw, ch, inventory) {
-    const y  = ch - 10;
-    const x0 = 12;
-    let   cx = x0;
+  _drawCargo(ctx, cw, ch, inventory) {
+    const used = inventory.cargoUsed;
+    const cap  = inventory.cargoCapacity;
+    const full = used >= cap;
+    const x = 12, y = 56;
+    const bw = 140, bh = 10;
 
+    ctx.fillStyle = full ? C.CARGO_FULL : C.CARGO_BAR;
+    ctx.font      = 'bold 11px monospace';
+    ctx.fillText('積荷', x, y + 9);
+
+    drawBar(ctx, x + 36, y, bw, bh, used, cap,
+      full ? C.CARGO_FULL : C.CARGO_BAR,
+      'rgba(0,0,0,0.5)'
+    );
+    ctx.fillStyle = '#a0c0a0';
+    ctx.font      = '9px monospace';
+    ctx.fillText(`${used}/${cap}`, x + 36 + bw + 4, y + 9);
+
+    // Ore breakdown at bottom
+    const by = ch - 10;
+    let cx2  = 12;
     ctx.font = '10px monospace';
-    for (const resId of RES_ORDER) {
-      const count = inventory.getRes(resId);
+    for (const oreId of ORE_ORDER) {
+      const count = inventory.getCargo(oreId);
       if (count <= 0) continue;
-      ctx.fillStyle = RES_COLORS[resId] ?? '#ffffff';
-      ctx.fillText(`${RES_NAMES[resId]}:${count}`, cx, y);
-      cx += ctx.measureText(`${RES_NAMES[resId]}:${count}`).width + 14;
+      ctx.fillStyle = ORE_COLORS[oreId] ?? '#ffffff';
+      const label   = `${ORE_NAMES[oreId] ?? oreId}:${count}`;
+      ctx.fillText(label, cx2, by);
+      cx2 += ctx.measureText(label).width + 12;
     }
   }
 
@@ -118,20 +133,41 @@ export class HUD {
     if (!ship) return;
     const spd = Math.sqrt(ship.vx * ship.vx + ship.vy * ship.vy) | 0;
     ctx.fillStyle = '#7090a0';
-    ctx.font = '10px monospace';
+    ctx.font      = '10px monospace';
     ctx.fillText(`${spd} u/s`, cw - 60, 24);
   }
 
-  _drawMinimap(ctx, cw, ch, playerShip, world, enemies) {
+  _drawStationProximity(ctx, cw, ch, ship, station) {
+    if (!ship || !station) return;
+    const d2    = dist2(ship.x, ship.y, station.x, station.y);
+    const dockR = STATION_DOCK_RANGE;
+    if (d2 > dockR * dockR) return;
+
+    const dist   = Math.sqrt(d2) | 0;
+    const inner  = dist2(ship.x, ship.y, station.x, station.y) < STATION_INNER_RANGE * STATION_INNER_RANGE;
+    const blink  = (Math.sin(Date.now() * 0.005) > 0);
+    const col    = inner ? C.DOCK_ACTIVE : (blink ? '#ffe060' : '#a0c080');
+
+    ctx.fillStyle = col;
+    ctx.font      = 'bold 13px monospace';
+    ctx.textAlign = 'center';
+    const label   = inner
+      ? '🛸 ドック接続中'
+      : `🛸 ステーション ${dist}m [E]でドック`;
+    ctx.fillText(label, cw * 0.5, ch - 48);
+    ctx.textAlign = 'left';
+  }
+
+  _drawMinimap(ctx, cw, ch, playerShip, world, enemies, station) {
     const mmW = 120, mmH = 120;
     const mmX = cw - mmW - 8;
     const mmY = ch - mmH - 8;
-    const scale = 1 / 6; // 1:6 world-to-minimap
+    const scale = 1 / 6;
 
-    ctx.fillStyle = 'rgba(0,6,16,0.75)';
+    ctx.fillStyle   = 'rgba(0,6,16,0.75)';
     ctx.fillRect(mmX, mmY, mmW, mmH);
     ctx.strokeStyle = C.HUD_BORDER;
-    ctx.lineWidth = 1;
+    ctx.lineWidth   = 1;
     ctx.strokeRect(mmX, mmY, mmW, mmH);
 
     const cx = mmX + mmW / 2;
@@ -139,7 +175,19 @@ export class HUD {
     const px = playerShip?.x ?? 0;
     const py = playerShip?.y ?? 0;
 
-    // Asteroids (gray)
+    // Station dot (cyan)
+    if (station) {
+      const sx = cx + (station.x - px) * scale;
+      const sy = cy + (station.y - py) * scale;
+      if (sx >= mmX && sx <= mmX + mmW && sy >= mmY && sy <= mmY + mmH) {
+        ctx.fillStyle = '#40d8ff';
+        ctx.beginPath();
+        ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Asteroids
     ctx.fillStyle = '#605040';
     for (const a of world.asteroids) {
       const ax = cx + (a.x - px) * scale;
@@ -149,7 +197,7 @@ export class HUD {
       }
     }
 
-    // Enemies (red)
+    // Enemies
     ctx.fillStyle = '#ff4020';
     for (const ship of enemies.ships) {
       const ex = cx + (ship.x - px) * scale;
@@ -159,7 +207,7 @@ export class HUD {
       }
     }
 
-    // Drops (green dots)
+    // Drops
     ctx.fillStyle = '#40e060';
     for (const d of world.drops) {
       const dx = cx + (d.x - px) * scale;
@@ -169,7 +217,7 @@ export class HUD {
       }
     }
 
-    // Player (white arrow)
+    // Player arrow
     ctx.fillStyle = '#ffffff';
     ctx.save();
     ctx.translate(cx, cy);
@@ -182,8 +230,35 @@ export class HUD {
 
   _drawKeyHints(ctx, cw, ch) {
     ctx.fillStyle = 'rgba(60,80,100,0.5)';
-    ctx.font = '9px monospace';
-    const hints = '[WASD]移動  [Bキー]建造  [Cキー]クラフト  [クリック]射撃  [Eキー]ドリル';
-    ctx.fillText(hints, 12, ch - 24);
+    ctx.font      = '9px monospace';
+    ctx.fillText('[WASD]移動  [クリック/右側タップ]射撃  [E]ドリル/ドック  [Esc]設定', 12, ch - 24);
+  }
+
+  _drawJoystick(ctx, input) {
+    if (input._joyId < 0) return; // no active touch on left side
+    const ox   = input.joyOriginX;
+    const oy   = input.joyOriginY;
+    const jx   = input.joyX;
+    const jy   = input.joyY;
+    const maxR = 50;
+
+    // Base ring
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    ctx.strokeStyle = '#6090c0';
+    ctx.lineWidth   = 2;
+    ctx.beginPath();
+    ctx.arc(ox, oy, maxR, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Knob
+    ctx.fillStyle = 'rgba(80,160,220,0.5)';
+    ctx.beginPath();
+    ctx.arc(ox + jx * maxR, oy + jy * maxR, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#80c0ff';
+    ctx.lineWidth   = 1.5;
+    ctx.stroke();
+    ctx.restore();
   }
 }

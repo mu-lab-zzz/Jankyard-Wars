@@ -15,11 +15,11 @@ export class Input {
     this._justDownBtn = 0;
 
     // Virtual joystick (touch, left half of screen)
-    this.joyX = 0;  // -1..1
-    this.joyY = 0;
+    this.joyX       = 0;  // -1..1
+    this.joyY       = 0;
     this._joyId     = -1;
-    this._joyOx     = 0;
-    this._joyOy     = 0;
+    this.joyOriginX = 0;  // screen position of joystick anchor
+    this.joyOriginY = 0;
 
     // Touch fire (right half)
     this.touchFire  = false;
@@ -77,8 +77,9 @@ export class Input {
       const p = this._canvasPos(t.clientX, t.clientY);
       if (p.x < this.canvas.width * 0.5) {
         if (this._joyId < 0) {
-          this._joyId = t.identifier;
-          this._joyOx = p.x; this._joyOy = p.y;
+          this._joyId     = t.identifier;
+          this.joyOriginX = p.x;
+          this.joyOriginY = p.y;
           this.joyX = 0; this.joyY = 0;
         }
       } else {
@@ -98,8 +99,8 @@ export class Input {
       const t = e.changedTouches[i];
       const p = this._canvasPos(t.clientX, t.clientY);
       if (t.identifier === this._joyId) {
-        const dx = p.x - this._joyOx;
-        const dy = p.y - this._joyOy;
+        const dx = p.x - this.joyOriginX;
+        const dy = p.y - this.joyOriginY;
         const r  = Math.sqrt(dx * dx + dy * dy);
         const maxR = 50;
         if (r > 0) {

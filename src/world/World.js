@@ -5,15 +5,13 @@ import {
   ASTEROID_DENSITY, ASTEROIDS_PER_CHUNK,
   ENEMY_DENSITY, ENEMIES_PER_CHUNK,
   ASTEROID_DESPAWN_DIST, ENEMY_DESPAWN_DIST,
-  PICKUP_RANGE, BS,
+  PICKUP_RANGE,
 } from '../constants.js';
 import { Pool }              from '../utils/Pool.js';
 import { makePRNG, hashInt2 } from '../utils/PRNG.js';
 import { dist2 }              from '../utils/Math2D.js';
 import { Asteroid, initAsteroidSprites } from './Asteroid.js';
 import { DropItem }           from './DropItem.js';
-
-// ── Object pools ───────────────────────────────────────────────────────────
 
 const asteroidPool = new Pool(
   () => new Asteroid(),
@@ -25,24 +23,19 @@ const dropPool = new Pool(
   (d) => { d.alive = false; d.count = 0; }
 );
 
-// Prewarm pools at startup
 asteroidPool.prewarm(40);
 dropPool.prewarm(60);
 
 export class World {
   constructor(seed = 42) {
-    this._seed       = seed;
-    this._activeChunks = new Set();   // 'cx,cy' strings
-    this._asteroids  = [];            // live Asteroid refs
-    this._drops      = [];            // live DropItem refs
-    this._enemySpawnQueue = [];       // { cx, cy, x, y } pending spawns
+    this._seed            = seed;
+    this._activeChunks    = new Set();
+    this._asteroids       = [];
+    this._drops           = [];
+    this._enemySpawnQueue = [];
   }
 
-  init() {
-    initAsteroidSprites();
-  }
-
-  // ── Chunk system ───────────────────────────────────────────────────────
+  init() { initAsteroidSprites(); }
 
   _chunkKey(cx, cy) { return `${cx},${cy}`; }
 
@@ -53,9 +46,7 @@ export class World {
     this._spawnChunkContent(cx, cy);
   }
 
-  _deactivateChunk(cx, cy) {
-    this._activeChunks.delete(this._chunkKey(cx, cy));
-  }
+  _deactivateChunk(cx, cy) { this._activeChunks.delete(this._chunkKey(cx, cy)); }
 
   _spawnChunkContent(cx, cy) {
     const seed = hashInt2(cx, cy) ^ this._seed;
@@ -83,20 +74,18 @@ export class World {
     }
   }
 
-  /** Call each frame with the player's world position. */
+  /** Update world each frame. inventory.addOre() is cargo-capacity-aware. */
   update(playerX, playerY, dt, inventory) {
     const pcx = Math.floor(playerX / CHUNK_PX);
     const pcy = Math.floor(playerY / CHUNK_PX);
     const R   = ACTIVE_RADIUS_CHUNKS;
 
-    // Activate needed chunks
     for (let dx = -R; dx <= R; dx++) {
       for (let dy = -R; dy <= R; dy++) {
         this._activateChunk(pcx + dx, pcy + dy);
       }
     }
 
-    // Update asteroids, remove dead / out-of-range
     const astDespSq = ASTEROID_DESPAWN_DIST * ASTEROID_DESPAWN_DIST;
     for (let i = this._asteroids.length - 1; i >= 0; i--) {
       const a = this._asteroids[i];
@@ -108,38 +97,42 @@ export class World {
       a.update(dt);
     }
 
-    // Update drops, auto-collect near player
     const pickSq = PICKUP_RANGE * PICKUP_RANGE;
     for (let i = this._drops.length - 1; i >= 0; i--) {
       const d = this._drops[i];
       if (!d.alive) { dropPool.release(d); this._drops.splice(i, 1); continue; }
       d.update(dt);
       if (dist2(d.x, d.y, playerX, playerY) < pickSq) {
-        inventory.addRes(d.resId, d.count);
-        d.alive = false;
-        dropPool.release(d);
-        this._drops.splice(i, 1);
+        const added = inventory.addOre(d.resId, d.count);
+        if (added > 0 || d._life < 1) {
+          // Only remove if at least partially picked up, or about to expire
+          if (added >= d.count) {
+            d.alive = false;
+            dropPool.release(d);
+            this._drops.splice(i, 1);
+          } else {
+            // Partial pickup — reduce count
+            d.count -= added;
+          }
+        }
       }
     }
   }
 
-  /** Check bullet/drill collision against all asteroids. */
   damageAsteroid(asteroid, amount) {
     asteroid.hp -= amount;
     if (asteroid.hp <= 0) {
-      // Spawn drops
       for (const drop of asteroid.getDrops()) {
         const d = dropPool.get();
         d.init(asteroid.x, asteroid.y, drop.id, drop.count);
         this._drops.push(d);
       }
       asteroid.alive = false;
-      return true; // destroyed
+      return true;
     }
     return false;
   }
 
-  /** Consume pending enemy spawn requests — caller handles instantiation. */
   drainEnemySpawns() {
     const q = this._enemySpawnQueue.slice();
     this._enemySpawnQueue.length = 0;
@@ -149,13 +142,6 @@ export class World {
   get asteroids() { return this._asteroids; }
   get drops()     { return this._drops; }
 
-  // ── Rendering ─────────────────────────────────────────────────────────
-
-  drawDrops(ctx) {
-    for (const d of this._drops) d.draw(ctx);
-  }
-
-  drawAsteroids(ctx) {
-    for (const a of this._asteroids) a.draw(ctx);
-  }
+  drawDrops(ctx)     { for (const d of this._drops)     d.draw(ctx); }
+  drawAsteroids(ctx) { for (const a of this._asteroids) a.draw(ctx); }
 }

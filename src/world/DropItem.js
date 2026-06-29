@@ -1,6 +1,6 @@
-// src/world/DropItem.js — floating resource drop entity
+// src/world/DropItem.js — floating ore drop entity
 
-import { RES_COLORS } from '../inventory/Inventory.js';
+import { ORE_COLORS } from '../inventory/Inventory.js';
 
 export class DropItem {
   constructor() {
@@ -10,8 +10,8 @@ export class DropItem {
     this.count  = 0;
     this.alive  = false;
     this._pooled= false;
-    this._life  = 30;   // seconds until auto-despawn
-    this._t     = 0;    // age timer (for bobbing animation)
+    this._life  = 30;
+    this._t     = 0;
   }
 
   init(x, y, resId, count) {
@@ -39,7 +39,7 @@ export class DropItem {
     if (!this.alive) return;
     const bob  = Math.sin(this._t * 3) * 2;
     const size = 8;
-    const col  = RES_COLORS[this.resId] ?? '#ffffff';
+    const col  = ORE_COLORS[this.resId] ?? '#ffffff';
     ctx.save();
     ctx.translate(this.x, this.y + bob);
     ctx.fillStyle   = col;

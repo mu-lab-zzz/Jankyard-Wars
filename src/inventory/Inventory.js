@@ -1,97 +1,157 @@
-// src/inventory/Inventory.js — resources + block stock management
+// src/inventory/Inventory.js — 2-tier resource system: cargo (ship) + station storage
 
-import { RES } from '../constants.js';
+import { ORE, MAT, ORE_WEIGHT } from '../constants.js';
 
-// Resource display colours (index mirrors RES order)
-export const RES_COLORS = {
-  [RES.IRON]:        '#a0b8c8',
-  [RES.COPPER]:      '#e07830',
-  [RES.CRYSTAL]:     '#60d8ff',
-  [RES.TITANIUM]:    '#c0c8e0',
-  [RES.DARK_MATTER]: '#d060ff',
-};
+export const ORE_COLORS = Object.freeze({
+  [ORE.IRON]:        '#a0b8c8',
+  [ORE.COPPER]:      '#e07830',
+  [ORE.CRYSTAL]:     '#60d8ff',
+  [ORE.TITANIUM]:    '#c0c8e0',
+  [ORE.DARK_MATTER]: '#d060ff',
+});
 
-export const RES_NAMES = {
-  [RES.IRON]:        '鉄',
-  [RES.COPPER]:      '銅',
-  [RES.CRYSTAL]:     '水晶',
-  [RES.TITANIUM]:    'チタン',
-  [RES.DARK_MATTER]: '暗黒物質',
-};
+export const ORE_NAMES = Object.freeze({
+  [ORE.IRON]:        '鉄鉱石',
+  [ORE.COPPER]:      '銅鉱石',
+  [ORE.CRYSTAL]:     '水晶',
+  [ORE.TITANIUM]:    'チタン',
+  [ORE.DARK_MATTER]: '暗黒物質',
+});
+
+export const MAT_COLORS = Object.freeze({
+  [MAT.IRON_PLATE]:     '#c8d8e0',
+  [MAT.COPPER_WIRE]:    '#f0a050',
+  [MAT.CRYSTAL_LENS]:   '#80e8ff',
+  [MAT.TITANIUM_ALLOY]: '#e0e8ff',
+  [MAT.ENERGY_CELL]:    '#e080ff',
+});
+
+export const MAT_NAMES = Object.freeze({
+  [MAT.IRON_PLATE]:     '鉄板',
+  [MAT.COPPER_WIRE]:    '銅線',
+  [MAT.CRYSTAL_LENS]:   '水晶レンズ',
+  [MAT.TITANIUM_ALLOY]: 'チタン合金',
+  [MAT.ENERGY_CELL]:    'エネルギーセル',
+});
 
 export class Inventory {
   constructor() {
-    // Resources: id -> count (always integers)
-    this._res = Object.create(null);
-    for (const k of Object.values(RES)) this._res[k] = 0;
+    // Ores carried on ship (weight-limited)
+    this._cargo       = Object.create(null);
+    this.cargoUsed     = 0;
+    this.cargoCapacity = 20; // updated from ship.stats.cargoCapacity
 
-    // Block stock: blockTypeId -> count
-    this._blocks = Object.create(null);
+    // Ores deposited at station
+    this._stationOre = Object.create(null);
 
-    // Total cargo used (resources only; 1 unit = 1 resource)
-    this.capacity = 200; // updated from ship stats
+    // Processed materials at station
+    this._materials  = Object.create(null);
+
+    // Crafted block stock at station
+    this._blockStock = Object.create(null);
   }
 
-  // ── Resources ──────────────────────────────────────────────────────────
+  // ── Cargo (ship) ───────────────────────────────────────────────────────────
 
-  getRes(id) { return this._res[id] ?? 0; }
+  setCapacity(cap) { this.cargoCapacity = Math.max(1, cap); }
 
-  addRes(id, amount) {
-    if (!this._res[id] !== undefined) return false;
-    this._res[id] = (this._res[id] || 0) + amount;
-    return true;
+  /** Add ore to ship cargo, respecting weight limit. Returns amount actually added. */
+  addOre(oreId, amount) {
+    const weight   = ORE_WEIGHT[oreId] ?? 1;
+    const free     = this.cargoCapacity - this.cargoUsed;
+    const canAdd   = Math.max(0, Math.floor(free / weight));
+    const actual   = Math.min(amount, canAdd);
+    if (actual <= 0) return 0;
+    this._cargo[oreId]  = (this._cargo[oreId]  || 0) + actual;
+    this.cargoUsed      += actual * weight;
+    return actual;
   }
 
-  /**
-   * Attempt to consume resources.
-   * @param {{ [id]: number }} cost
-   * @returns {boolean} true if successful (resources deducted), false if insufficient
-   */
-  spendRes(cost) {
-    for (const id in cost) {
-      if ((this._res[id] || 0) < cost[id]) return false;
+  getCargo(oreId)   { return this._cargo[oreId] ?? 0; }
+  cargoFull()       { return this.cargoUsed >= this.cargoCapacity; }
+  cargoEntries()    { return Object.entries(this._cargo); }
+
+  // ── Station ore ────────────────────────────────────────────────────────────
+
+  /** Move all ship cargo to station ore storage. */
+  depositAllOre() {
+    for (const id in this._cargo) {
+      if (this._cargo[id] > 0) {
+        this._stationOre[id] = (this._stationOre[id] || 0) + this._cargo[id];
+      }
     }
-    for (const id in cost) { this._res[id] -= cost[id]; }
-    return true;
+    this._cargo    = Object.create(null);
+    this.cargoUsed = 0;
   }
 
-  canAfford(cost) {
+  getStationOre(oreId) { return this._stationOre[oreId] ?? 0; }
+  stationOreEntries()  { return Object.entries(this._stationOre); }
+
+  // ── Materials (refined at station) ─────────────────────────────────────────
+
+  getMat(matId)    { return this._materials[matId] ?? 0; }
+  matEntries()     { return Object.entries(this._materials); }
+
+  addMat(matId, n) { this._materials[matId] = (this._materials[matId] || 0) + n; }
+
+  canAffordMat(cost) {
     for (const id in cost) {
-      if ((this._res[id] || 0) < cost[id]) return false;
+      if ((this._materials[id] || 0) < cost[id]) return false;
     }
     return true;
   }
 
-  totalRes() {
-    let t = 0;
-    for (const k in this._res) t += this._res[k];
-    return t;
+  spendMat(cost) {
+    if (!this.canAffordMat(cost)) return false;
+    for (const id in cost) this._materials[id] -= cost[id];
+    return true;
   }
 
-  resEntries() { return Object.entries(this._res); }
+  /** Refine station ore into material. Returns units produced (0 if insufficient). */
+  refineOre(oreId, matId, orePerMat) {
+    const have   = this._stationOre[oreId] ?? 0;
+    const canMake = Math.floor(have / orePerMat);
+    if (canMake <= 0) return 0;
+    const useOre = canMake * orePerMat;
+    this._stationOre[oreId] -= useOre;
+    this._materials[matId]   = (this._materials[matId] || 0) + canMake;
+    return canMake;
+  }
 
-  // ── Block stock ────────────────────────────────────────────────────────
+  // ── Block stock (crafted at station) ───────────────────────────────────────
 
-  getBlocks(typeId) { return this._blocks[typeId] ?? 0; }
-
-  addBlock(typeId, n = 1) { this._blocks[typeId] = (this._blocks[typeId] || 0) + n; }
+  getBlocks(typeId)  { return this._blockStock[typeId] ?? 0; }
+  blockEntries()     { return Object.entries(this._blockStock); }
+  addBlock(typeId, n = 1) { this._blockStock[typeId] = (this._blockStock[typeId] || 0) + n; }
 
   spendBlock(typeId, n = 1) {
-    if ((this._blocks[typeId] || 0) < n) return false;
-    this._blocks[typeId] -= n;
+    if ((this._blockStock[typeId] || 0) < n) return false;
+    this._blockStock[typeId] -= n;
     return true;
   }
 
-  blockEntries() { return Object.entries(this._blocks); }
-
-  // ── Serialisation ─────────────────────────────────────────────────────
+  // ── Serialisation ──────────────────────────────────────────────────────────
 
   toJSON() {
-    return { res: Object.assign({}, this._res), blocks: Object.assign({}, this._blocks) };
+    return {
+      cargo:      { ...this._cargo      },
+      stationOre: { ...this._stationOre },
+      materials:  { ...this._materials  },
+      blockStock: { ...this._blockStock },
+    };
   }
 
   fromJSON(data) {
-    if (data.res)    Object.assign(this._res,    data.res);
-    if (data.blocks) Object.assign(this._blocks, data.blocks);
+    if (data.cargo)      { this._cargo      = Object.create(null); Object.assign(this._cargo,      data.cargo);      }
+    if (data.stationOre) { this._stationOre = Object.create(null); Object.assign(this._stationOre, data.stationOre); }
+    if (data.materials)  { this._materials  = Object.create(null); Object.assign(this._materials,  data.materials);  }
+    if (data.blockStock) { this._blockStock = Object.create(null); Object.assign(this._blockStock, data.blockStock); }
+    this._recalcCargoUsed();
+  }
+
+  _recalcCargoUsed() {
+    let total = 0;
+    for (const id in this._cargo) total += (this._cargo[id] || 0) * (ORE_WEIGHT[id] ?? 1);
+    this.cargoUsed = total;
   }
 }
