@@ -21,6 +21,7 @@
       display: block;
       width: 100%;
       height: 100%;
+      background: #06090f;
     }
 
     /* ── Build UI overlay ────────────────────────────────────────────── */
@@ -4027,6 +4028,24 @@ game.init().then(() => game.start());
 window.__game = game;
 
 
+  </script>
+
+  <!-- Error display for mobile debugging -->
+  <div id="err-overlay" style="display:none;position:fixed;inset:0;background:#1a0000;color:#ff8080;font-size:13px;padding:16px;z-index:9999;word-break:break-all;overflow:auto;white-space:pre-wrap"></div>
+  <script>
+    (function() {
+      function show(msg) {
+        var el = document.getElementById('err-overlay');
+        if (el) { el.style.display = 'block'; el.textContent += msg + '\n'; }
+      }
+      window.onerror = function(msg, src, line, col) {
+        show('ERROR: ' + msg + '\n  at line ' + line);
+        return false;
+      };
+      window.addEventListener('unhandledrejection', function(e) {
+        show('PROMISE ERROR: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason)));
+      });
+    })();
   </script>
 </body>
 </html>
