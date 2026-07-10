@@ -80,15 +80,16 @@ function releaseEnemy(ship) {
 export class EnemyManager {
   constructor() {
     this._enemies = [];   // { ship, ai }
+    this._ships   = [];   // parallel array — no alloc on get ships
   }
 
   spawn(x, y) {
-    // Tier based on distance from origin
     const dist = Math.sqrt(x * x + y * y);
     const tier = Math.min(Math.floor(dist / 2000), LAYOUTS.length - 1);
     const ship = acquireEnemy(x, y, tier);
     const ai   = new EnemyAI(ship);
     this._enemies.push({ ship, ai });
+    this._ships.push(ship);
     return ship;
   }
 
@@ -99,6 +100,7 @@ export class EnemyManager {
       if (!ship.alive || dist2(ship.x, ship.y, playerX, playerY) > despSq) {
         releaseEnemy(ship);
         this._enemies.splice(i, 1);
+        this._ships.splice(i, 1);
         continue;
       }
       ship.update(dt);
@@ -113,5 +115,5 @@ export class EnemyManager {
     }
   }
 
-  get ships() { return this._enemies.map(e => e.ship); }
+  get ships() { return this._ships; }
 }

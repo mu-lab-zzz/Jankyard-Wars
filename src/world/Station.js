@@ -7,6 +7,22 @@ export class Station {
     this.x = STATION_X;
     this.y = STATION_Y;
     this._t = 0;
+
+    // Pre-render glow sprite once to avoid per-frame gradient creation
+    const sz = 50;
+    const gc = (typeof OffscreenCanvas !== 'undefined')
+      ? new OffscreenCanvas(sz, sz)
+      : (() => { const c = document.createElement('canvas'); c.width = sz; c.height = sz; return c; })();
+    const gctx = gc.getContext('2d');
+    const g = gctx.createRadialGradient(sz/2, sz/2, 2, sz/2, sz/2, sz/2 - 3);
+    g.addColorStop(0, 'rgba(60,180,255,1)');
+    g.addColorStop(1, 'rgba(20,80,180,0)');
+    gctx.fillStyle = g;
+    gctx.beginPath();
+    gctx.arc(sz/2, sz/2, sz/2 - 3, 0, Math.PI * 2);
+    gctx.fill();
+    this._glowSprite = gc;
+    this._glowHalf   = sz / 2;
   }
 
   update(dt) { this._t += dt; }
@@ -100,15 +116,11 @@ export class Station {
     ctx.fill();
     ctx.stroke();
 
-    // Core glow (pulsing)
+    // Core glow (pulsing) — pre-rendered sprite, only globalAlpha changes
     const pulse = 0.7 + 0.3 * Math.sin(t * 2.4);
-    const glow  = ctx.createRadialGradient(0, 0, 2, 0, 0, 22);
-    glow.addColorStop(0, `rgba(60,180,255,${(0.7 * pulse).toFixed(2)})`);
-    glow.addColorStop(1, 'rgba(20,80,180,0)');
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(0, 0, 22, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.globalAlpha = pulse;
+    ctx.drawImage(this._glowSprite, -this._glowHalf, -this._glowHalf);
+    ctx.globalAlpha = 1;
 
     ctx.restore();
   }

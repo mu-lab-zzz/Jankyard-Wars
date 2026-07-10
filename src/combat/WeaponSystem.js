@@ -73,15 +73,17 @@ export function updateBullets(dt) {
 
 /** Draw all live bullets. */
 export function drawBullets(ctx) {
+  ctx.save();
   for (const b of bullets) {
     if (!b.alive) continue;
+    const angle = Math.atan2(b.vy, b.vx);
+    const cos   = Math.cos(angle);
+    const sin   = Math.sin(angle);
     ctx.fillStyle = b.isPlayer ? '#ffe080' : '#ff5030';
-    ctx.save();
-    ctx.translate(b.x, b.y);
-    ctx.rotate(Math.atan2(b.vy, b.vx));
+    ctx.setTransform(cos, sin, -sin, cos, b.x, b.y);
     ctx.fillRect(-5, -1.5, 10, 3);
-    ctx.restore();
   }
+  ctx.restore();
 }
 
 /** Check if a bullet hits any ship in `ships` array. Returns { bullet, ship } or null. */

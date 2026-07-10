@@ -33,6 +33,9 @@ export class World {
     this._asteroids       = [];
     this._drops           = [];
     this._enemySpawnQueue = [];
+    this._pruneTimer      = 0;
+    this._lastPcx         = null;
+    this._lastPcy         = null;
   }
 
   init() { initAsteroidSprites(); }
@@ -74,6 +77,19 @@ export class World {
     }
   }
 
+  _pruneChunks(pcx, pcy, R) {
+    const toDelete = [];
+    for (const key of this._activeChunks) {
+      const ci = key.indexOf(',');
+      const cx = parseInt(key, 10);
+      const cy = parseInt(key.slice(ci + 1), 10);
+      if (Math.abs(cx - pcx) > R + 2 || Math.abs(cy - pcy) > R + 2) {
+        toDelete.push(key);
+      }
+    }
+    for (const key of toDelete) this._activeChunks.delete(key);
+  }
+
   /** Update world each frame. inventory.addOre() is cargo-capacity-aware. */
   update(playerX, playerY, dt, inventory) {
     const pcx = Math.floor(playerX / CHUNK_PX);
@@ -84,6 +100,13 @@ export class World {
       for (let dy = -R; dy <= R; dy++) {
         this._activateChunk(pcx + dx, pcy + dy);
       }
+    }
+
+    // Prune stale chunk records every 5 seconds to prevent unbounded growth
+    this._pruneTimer += dt;
+    if (this._pruneTimer > 5) {
+      this._pruneTimer = 0;
+      this._pruneChunks(pcx, pcy, R);
     }
 
     const astDespSq = ASTEROID_DESPAWN_DIST * ASTEROID_DESPAWN_DIST;

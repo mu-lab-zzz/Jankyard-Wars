@@ -1887,6 +1887,22 @@ class Station {
     this.x = STATION_X;
     this.y = STATION_Y;
     this._t = 0;
+
+    // Pre-render glow sprite once to avoid per-frame gradient creation
+    const sz = 50;
+    const gc = (typeof OffscreenCanvas !== 'undefined')
+      ? new OffscreenCanvas(sz, sz)
+      : (() => { const c = document.createElement('canvas'); c.width = sz; c.height = sz; return c; })();
+    const gctx = gc.getContext('2d');
+    const g = gctx.createRadialGradient(sz/2, sz/2, 2, sz/2, sz/2, sz/2 - 3);
+    g.addColorStop(0, 'rgba(60,180,255,1)');
+    g.addColorStop(1, 'rgba(20,80,180,0)');
+    gctx.fillStyle = g;
+    gctx.beginPath();
+    gctx.arc(sz/2, sz/2, sz/2 - 3, 0, Math.PI * 2);
+    gctx.fill();
+    this._glowSprite = gc;
+    this._glowHalf   = sz / 2;
   }
 
   update(dt) { this._t += dt; }
@@ -1980,15 +1996,11 @@ class Station {
     ctx.fill();
     ctx.stroke();
 
-    // Core glow (pulsing)
+    // Core glow (pulsing) — pre-rendered sprite, only globalAlpha changes
     const pulse = 0.7 + 0.3 * Math.sin(t * 2.4);
-    const glow  = ctx.createRadialGradient(0, 0, 2, 0, 0, 22);
-    glow.addColorStop(0, `rgba(60,180,255,${(0.7 * pulse).toFixed(2)})`);
-    glow.addColorStop(1, 'rgba(20,80,180,0)');
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(0, 0, 22, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.globalAlpha = pulse;
+    ctx.drawImage(this._glowSprite, -this._glowHalf, -this._glowHalf);
+    ctx.globalAlpha = 1;
 
     ctx.restore();
   }
@@ -2017,6 +2029,9 @@ class World {
     this._asteroids       = [];
     this._drops           = [];
     this._enemySpawnQueue = [];
+    this._pruneTimer      = 0;
+    this._lastPcx         = null;
+    this._lastPcy         = null;
   }
 
   init() { initAsteroidSprites(); }
@@ -2058,6 +2073,19 @@ class World {
     }
   }
 
+  _pruneChunks(pcx, pcy, R) {
+    const toDelete = [];
+    for (const key of this._activeChunks) {
+      const ci = key.indexOf(',');
+      const cx = parseInt(key, 10);
+      const cy = parseInt(key.slice(ci + 1), 10);
+      if (Math.abs(cx - pcx) > R + 2 || Math.abs(cy - pcy) > R + 2) {
+        toDelete.push(key);
+      }
+    }
+    for (const key of toDelete) this._activeChunks.delete(key);
+  }
+
   /** Update world each frame. inventory.addOre() is cargo-capacity-aware. */
   update(playerX, playerY, dt, inventory) {
     const pcx = Math.floor(playerX / CHUNK_PX);
@@ -2068,6 +2096,13 @@ class World {
       for (let dy = -R; dy <= R; dy++) {
         this._activateChunk(pcx + dx, pcy + dy);
       }
+    }
+
+    // Prune stale chunk records every 5 seconds to prevent unbounded growth
+    this._pruneTimer += dt;
+    if (this._pruneTimer > 5) {
+      this._pruneTimer = 0;
+      this._pruneChunks(pcx, pcy, R);
     }
 
     const astDespSq = ASTEROID_DESPAWN_DIST * ASTEROID_DESPAWN_DIST;
@@ -2246,15 +2281,17 @@ function updateBullets(dt) {
 
 /** Draw all live bullets. */
 function drawBullets(ctx) {
+  ctx.save();
   for (const b of bullets) {
     if (!b.alive) continue;
+    const angle = Math.atan2(b.vy, b.vx);
+    const cos   = Math.cos(angle);
+    const sin   = Math.sin(angle);
     ctx.fillStyle = b.isPlayer ? '#ffe080' : '#ff5030';
-    ctx.save();
-    ctx.translate(b.x, b.y);
-    ctx.rotate(Math.atan2(b.vy, b.vx));
+    ctx.setTransform(cos, sin, -sin, cos, b.x, b.y);
     ctx.fillRect(-5, -1.5, 10, 3);
-    ctx.restore();
   }
+  ctx.restore();
 }
 
 /** Check if a bullet hits any ship in `ships` array. Returns { bullet, ship } or null. */
@@ -2482,15 +2519,16 @@ function releaseEnemy(ship) {
 class EnemyManager {
   constructor() {
     this._enemies = [];   // { ship, ai }
+    this._ships   = [];   // parallel array — no alloc on get ships
   }
 
   spawn(x, y) {
-    // Tier based on distance from origin
     const dist = Math.sqrt(x * x + y * y);
     const tier = Math.min(Math.floor(dist / 2000), LAYOUTS.length - 1);
     const ship = acquireEnemy(x, y, tier);
     const ai   = new EnemyAI(ship);
     this._enemies.push({ ship, ai });
+    this._ships.push(ship);
     return ship;
   }
 
@@ -2501,6 +2539,7 @@ class EnemyManager {
       if (!ship.alive || dist2(ship.x, ship.y, playerX, playerY) > despSq) {
         releaseEnemy(ship);
         this._enemies.splice(i, 1);
+        this._ships.splice(i, 1);
         continue;
       }
       ship.update(dt);
@@ -2515,7 +2554,7 @@ class EnemyManager {
     }
   }
 
-  get ships() { return this._enemies.map(e => e.ship); }
+  get ships() { return this._ships; }
 }
 
 // ═══ src/effects/EffectsSystem.js ═══
@@ -2541,6 +2580,7 @@ class Particle {
     this.life = life; this.maxLife = life;
     this.r = r; this.r0 = r;
     this.cr = cr; this.cg = cg; this.cb = cb;
+    this._col = `rgb(${cr},${cg},${cb})`;
     this.alive = true;
   }
 
@@ -2555,12 +2595,11 @@ class Particle {
 
   draw(ctx) {
     if (!this.alive) return;
-    const t     = this.life / this.maxLife;
-    const alpha = t.toFixed(2);
-    const rad   = this.r * t;
+    const t = this.life / this.maxLife;
+    ctx.globalAlpha = t;
+    ctx.fillStyle   = this._col;
     ctx.beginPath();
-    ctx.arc(this.x, this.y, Math.max(rad, 0.5), 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(${this.cr},${this.cg},${this.cb},${alpha})`;
+    ctx.arc(this.x, this.y, Math.max(this.r * t, 0.5), 0, Math.PI * 2);
     ctx.fill();
   }
 }
@@ -2629,7 +2668,9 @@ const Effects = {
   },
 
   draw(ctx) {
+    ctx.save();
     for (const p of _particles) p.draw(ctx);
+    ctx.restore();
   },
 
   get count() { return _particles.length; },
@@ -3076,6 +3117,7 @@ class BuildUI {
     }
 
     this._updateStats();
+    this._updatePaletteCounters();
   }
 
   // ── Draw build view ──────────────────────────────────────────────────────
@@ -3134,8 +3176,6 @@ class BuildUI {
       }
     }
     ctx.restore();
-
-    this._updatePaletteCounters();
   }
 
   _updateStats() {

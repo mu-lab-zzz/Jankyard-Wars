@@ -121,6 +121,7 @@ export class BuildUI {
     }
 
     this._updateStats();
+    this._updatePaletteCounters();
   }
 
   // ── Draw build view ──────────────────────────────────────────────────────
@@ -179,8 +180,6 @@ export class BuildUI {
       }
     }
     ctx.restore();
-
-    this._updatePaletteCounters();
   }
 
   _updateStats() {

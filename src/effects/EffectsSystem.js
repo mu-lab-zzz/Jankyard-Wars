@@ -22,6 +22,7 @@ class Particle {
     this.life = life; this.maxLife = life;
     this.r = r; this.r0 = r;
     this.cr = cr; this.cg = cg; this.cb = cb;
+    this._col = `rgb(${cr},${cg},${cb})`;
     this.alive = true;
   }
 
@@ -36,12 +37,11 @@ class Particle {
 
   draw(ctx) {
     if (!this.alive) return;
-    const t     = this.life / this.maxLife;
-    const alpha = t.toFixed(2);
-    const rad   = this.r * t;
+    const t = this.life / this.maxLife;
+    ctx.globalAlpha = t;
+    ctx.fillStyle   = this._col;
     ctx.beginPath();
-    ctx.arc(this.x, this.y, Math.max(rad, 0.5), 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(${this.cr},${this.cg},${this.cb},${alpha})`;
+    ctx.arc(this.x, this.y, Math.max(this.r * t, 0.5), 0, Math.PI * 2);
     ctx.fill();
   }
 }
@@ -110,7 +110,9 @@ export const Effects = {
   },
 
   draw(ctx) {
+    ctx.save();
     for (const p of _particles) p.draw(ctx);
+    ctx.restore();
   },
 
   get count() { return _particles.length; },
